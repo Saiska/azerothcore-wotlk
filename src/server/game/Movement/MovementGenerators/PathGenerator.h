@@ -91,7 +91,6 @@ class PathGenerator
         // a single NavTerrain or an OR'd combination (NavTerrain values
         // implicitly convert through uint16).
         void SetExcludeFlags(uint16 flags) { _filter.setExcludeFlags(flags); }
-        [[nodiscard]] uint16 GetExcludeFlags() const { return _filter.getExcludeFlags(); }
 
         // result getters
         [[nodiscard]] G3D::Vector3 const& GetStartPosition() const { return _startPosition; }
