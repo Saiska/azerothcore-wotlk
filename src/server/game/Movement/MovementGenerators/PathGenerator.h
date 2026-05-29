@@ -84,6 +84,11 @@ class PathGenerator
         // Adjust per-area Detour traversal cost on the active query filter.
         // Persists across CalculatePath calls until overwritten.
         void SetAreaCost(uint8 area, float cost) { _filter.setAreaCost(area, cost); }
+        // Replace the active filter's exclude bitmask. Use for callers
+        // that need bot-style filtering (e.g. exclude NAV_GROUND_STEEP)
+        // on PathGenerator instances constructed with non-bot sources.
+        void SetExcludeFlags(uint16 flags) { _filter.setExcludeFlags(flags); }
+        [[nodiscard]] uint16 GetExcludeFlags() const { return _filter.getExcludeFlags(); }
 
         // result getters
         [[nodiscard]] G3D::Vector3 const& GetStartPosition() const { return _startPosition; }
