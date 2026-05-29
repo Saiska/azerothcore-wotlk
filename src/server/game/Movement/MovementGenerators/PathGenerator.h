@@ -81,12 +81,15 @@ class PathGenerator
         void SetUseStraightPath(bool useStraightPath) { _useStraightPath = useStraightPath; }
         void SetPathLengthLimit(float distance) { _pointPathLimit = std::min<uint32>(uint32(distance/SMOOTH_PATH_STEP_SIZE), MAX_POINT_PATH_LENGTH); }
         void SetUseRaycast(bool useRaycast) { _useRaycast = useRaycast; }
-        // Adjust per-area Detour traversal cost on the active query filter.
-        // Persists across CalculatePath calls until overwritten.
-        void SetAreaCost(uint8 area, float cost) { _filter.setAreaCost(area, cost); }
-        // Replace the active filter's exclude bitmask. Use for callers
-        // that need bot-style filtering (e.g. exclude NAV_GROUND_STEEP)
-        // on PathGenerator instances constructed with non-bot sources.
+        // Adjust per-terrain Detour traversal cost on the active query
+        // filter. Persists across CalculatePath calls until overwritten.
+        void SetNavTerrainCost(NavTerrain terrain, float cost)
+        {
+            _filter.setAreaCost(static_cast<uint8>(terrain), cost);
+        }
+        // Replace the active filter's exclude bitmask. Caller may pass
+        // a single NavTerrain or an OR'd combination (NavTerrain values
+        // implicitly convert through uint16).
         void SetExcludeFlags(uint16 flags) { _filter.setExcludeFlags(flags); }
         [[nodiscard]] uint16 GetExcludeFlags() const { return _filter.getExcludeFlags(); }
 
