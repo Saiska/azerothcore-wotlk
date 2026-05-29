@@ -667,22 +667,6 @@ void PathGenerator::CreateFilter()
     {
         // perfect support not possible, just stay 'safe'
         includeFlags |= (NAV_GROUND | NAV_GROUND_STEEP | NAV_WATER | NAV_MAGMA);
-
-        // Playerbot sessions: cap at 50° (exclude NAV_GROUND_STEEP) and
-        // bias water 10x so A* prefers shore routes. Real player sessions
-        // keep vanilla behavior. IsBot() is false unless a session was
-        // created with the bot flag, so this is a no-op without mod-playerbots.
-        if (Player const* p = _source->ToPlayer())
-        {
-            if (WorldSession const* sess = p->GetSession())
-            {
-                if (sess->IsBot())
-                {
-                    excludeFlags |= NAV_GROUND_STEEP;
-                    _filter.setAreaCost(NAV_WATER, 10.0f);
-                }
-            }
-        }
     }
 
     _filter.setIncludeFlags(includeFlags);
