@@ -23,10 +23,6 @@
 #include "MMapMgr.h"
 #include "Map.h"
 #include "Metric.h"
-#ifdef MOD_PLAYERBOTS
-#include "Player.h"
-#include "WorldSession.h"
-#endif
 
  ////////////////// PathGenerator //////////////////
 PathGenerator::PathGenerator(WorldObject const* owner) :
@@ -667,20 +663,6 @@ void PathGenerator::CreateFilter()
     {
         // perfect support not possible, just stay 'safe'
         includeFlags |= (NAV_GROUND | NAV_GROUND_STEEP | NAV_WATER | NAV_MAGMA);
-
-#ifdef MOD_PLAYERBOTS
-        // Soft cost bias instead of a hard exclude for STEEP — keeps cave
-        // entries and similar 50°+ terrain reachable while A* still prefers
-        // gentler routes when they exist. Water is biased the same way:
-        // swim if necessary, but prefer dry land. Pairs with mmaps_generator's
-        // modAlmostUnwalkableTriangles at 50° (50°–60° polys get NAV_GROUND_STEEP).
-        Player const* p = _source->ToPlayer();
-        if (p && p->GetSession() && p->GetSession()->IsBot())
-        {
-            _filter.setAreaCost(NAV_GROUND_STEEP, 5.0f);
-            _filter.setAreaCost(NAV_WATER, 10.0f);
-        }
-#endif
     }
 
     _filter.setIncludeFlags(includeFlags);
