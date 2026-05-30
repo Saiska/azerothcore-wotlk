@@ -669,13 +669,15 @@ void PathGenerator::CreateFilter()
         includeFlags |= (NAV_GROUND | NAV_GROUND_STEEP | NAV_WATER | NAV_MAGMA);
 
 #ifdef MOD_PLAYERBOTS
-        // Pairs with mmaps_generator's modAlmostUnwalkableTriangles at 50°:
-        // bots avoid the NAV_GROUND_STEEP polys it tags between 50°–60°.
-        // Also biases bots toward dry land — swimming is slow and exposes them.
+        // Soft cost bias instead of a hard exclude for STEEP — keeps cave
+        // entries and similar 50°+ terrain reachable while A* still prefers
+        // gentler routes when they exist. Water is biased the same way:
+        // swim if necessary, but prefer dry land. Pairs with mmaps_generator's
+        // modAlmostUnwalkableTriangles at 50° (50°–60° polys get NAV_GROUND_STEEP).
         Player const* p = _source->ToPlayer();
         if (p && p->GetSession() && p->GetSession()->IsBot())
         {
-            excludeFlags |= NAV_GROUND_STEEP;
+            _filter.setAreaCost(NAV_GROUND_STEEP, 5.0f);
             _filter.setAreaCost(NAV_WATER, 10.0f);
         }
 #endif
