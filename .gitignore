@@ -10,6 +10,9 @@
 !/modules/CMakeLists.txt
 !/modules/*.h
 !/modules/*.cmake
+# In-tree (non-submodule) local module — track its sources
+!/modules/mod-gathering-yield
+!/modules/mod-gathering-yield/**
 /build*/
 /var/*
 !/var/build/.gitkeep
