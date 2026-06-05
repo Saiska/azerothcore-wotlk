@@ -2314,6 +2314,8 @@ void LoadLootTemplates_Reference()
     // output error for any still listed ids (not referenced from any loot table)
     LootTemplates_Reference.ReportUnusedIds(lootIdSet);
 
+    LOG_INFO("server.loading", "[Loot] Rate.Drop.Item.UncapChance = {} (>100% drop chance spills into extra loot)",
+             sWorld->getBoolConfig(CONFIG_LOOT_UNCAP_CHANCE) ? 1 : 0);
     LOG_INFO("server.loading", ">> Loaded reference loot templates in {} ms", GetMSTimeDiffToNow(oldMSTime));
     LOG_INFO("server.loading", " ");
 }
