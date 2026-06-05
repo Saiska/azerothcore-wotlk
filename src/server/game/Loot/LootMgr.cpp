@@ -104,6 +104,8 @@ public:
     void Process(Loot& loot, Player const* player, LootStore const& lootstore, uint16 lootMode, uint16 nonRefIterationsLeft) const;    // Rolls an item from the group (if any) and adds the item to the loot
     float RawTotalChance() const;                       // Overall chance for the group (without equal chanced items)
     float TotalChance() const;                          // Overall chance for the group
+    float EffectiveBoostedChance(LootStore const& store) const;   // Total chance with per-member Rate.Drop.Item.<Quality> applied (uncapped)
+    void ProcessGuaranteed(Loot& loot, Player const* player, LootStore const& store, uint16 lootMode, uint16 iterations) const;   // N guaranteed weighted picks (UncapChance path)
 
     void Verify(LootStore const& lootstore, uint32 id, uint8 group_id) const;
     void CollectLootIds(LootIdSet& set) const;
@@ -1489,6 +1491,38 @@ float LootTemplate::LootGroup::RawTotalChance() const
     for (LootStoreItemList::const_iterator i = ExplicitlyChanced.begin(); i != ExplicitlyChanced.end(); ++i)
         if (!(*i)->needs_quest)
             result += (*i)->chance;
+
+    return result;
+}
+
+// Overall group chance with the quality multiplier applied per member (uncapped).
+// Drives how MANY weighted picks the group makes (via RollOverflowCount); the per-pick
+// weighting (which item) is unchanged. Equal-chanced fillers preserve the guaranteed floor.
+float LootTemplate::LootGroup::EffectiveBoostedChance(LootStore const& store) const
+{
+    bool rate = store.IsRatesAllowed();
+    float result = 0.0f;
+
+    for (LootStoreItemList::const_iterator i = ExplicitlyChanced.begin(); i != ExplicitlyChanced.end(); ++i)
+    {
+        LootStoreItem* item = *i;
+        if (item->needs_quest)
+            continue;
+
+        float qualityModifier = 1.0f;
+        if (rate && !item->reference)
+        {
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(item->itemid);
+            if (proto && proto->Quality < ITEM_QUALITY_HEIRLOOM)
+                qualityModifier = sWorld->getRate(qualityToRate[proto->Quality]);
+        }
+        result += item->chance * qualityModifier;
+    }
+
+    // Fillers (chance=0 entries) guarantee one drop → keep the 100% floor so the
+    // group still always yields its baseline item (mirrors TotalChance()).
+    if (!EqualChanced.empty() && result < 100.0f)
+        result = 100.0f;
 
     return result;
 }
