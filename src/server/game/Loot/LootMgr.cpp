@@ -321,8 +321,8 @@ static uint16 const MAX_GROUP_OVERFLOW_ROLLS = MAX_NR_LOOT_ITEMS;
 // Converts an effective percentage (may exceed 100) into a drop count:
 // the whole-hundreds are guaranteed, the remainder is a single bonus roll.
 // eff=60 -> 0 or 1 (60%); eff=150 -> 1 + 50%; eff=300 -> 3. File-local; used by
-// LootStoreItem::RollCount (the grouped-loot overflow path "B" is deferred — see
-// the loot-chance-overflow-B backlog item).
+// LootStoreItem::RollCount (independent items, "A") and the grouped-loot overflow
+// path (the top-level group block -> ProcessGuaranteed, "B").
 static uint32 RollOverflowCount(float effectivePct)
 {
     if (effectivePct <= 0.0f)
