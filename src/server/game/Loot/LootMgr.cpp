@@ -118,6 +118,11 @@ private:
     LootStoreItemList EqualChanced;                     // Zero chances - every entry takes the same chance
 
     LootStoreItem const* Roll(Loot& loot, Player const* player, LootStore const& store, uint16 lootMode) const;   // Rolls an item from the group, returns nullptr if all miss their chances
+    // Like Roll(), but never returns nullptr on a chance-miss: when the weighted roll crosses
+    // no explicit member and no equal-chanced filler applies, it falls through to a raw-chance
+    // weighted pick among the valid explicit members. Returns nullptr only for a genuinely
+    // empty group. Used by ProcessGuaranteed so quality scales HOW MANY picks, not WHICH.
+    LootStoreItem const* RollGuaranteed(Loot& loot, Player const* player, LootStore const& store, uint16 lootMode) const;
 
     // This class must never be copied - storing pointers
     LootGroup(LootGroup const&);
@@ -1336,6 +1341,70 @@ LootStoreItem const* LootTemplate::LootGroup::Roll(Loot& loot, Player const* pla
         return Acore::Containers::SelectRandomContainerElement(possibleLoot);
 
     return nullptr;                                            // Empty drop from the group
+}
+
+// Roll() that never chance-misses: see the header comment. Distribution is identical to
+// Roll() conditional on a non-null result (fillers caught first => filler groups are
+// byte-identical to Roll; no-filler groups re-pick by raw chance weighting).
+LootStoreItem const* LootTemplate::LootGroup::RollGuaranteed(Loot& loot, Player const* player, LootStore const& store, uint16 lootMode) const
+{
+    LootStoreItemList possibleLoot = ExplicitlyChanced;
+    possibleLoot.remove_if(LootGroupInvalidSelector(loot, lootMode));
+
+    if (!possibleLoot.empty())                              // explicitly chanced entries first (== Roll)
+    {
+        float roll = (float)rand_chance();
+
+        for (LootStoreItemList::const_iterator itr = possibleLoot.begin(); itr != possibleLoot.end(); ++itr)
+        {
+            LootStoreItem* item = *itr;
+            float chance = item->chance;
+
+            if (!sScriptMgr->OnItemRoll(player, item, chance, loot, store))
+                return nullptr;                            // script veto preserved
+
+            if (chance >= 100.0f)
+                return item;
+
+            roll -= chance;
+            if (roll < 0)
+                return item;
+        }
+        // Walk missed. Vanilla Roll() would fall to fillers, then nullptr. We let fillers
+        // catch it (below, == Roll), else fall through to a guaranteed weighted explicit pick.
+    }
+
+    if (!sScriptMgr->OnBeforeLootEqualChanced(player, EqualChanced, loot, store))
+        return nullptr;
+
+    LootStoreItemList fillers = EqualChanced;
+    fillers.remove_if(LootGroupInvalidSelector(loot, lootMode));
+    if (!fillers.empty())                                  // fillers catch the miss (== Roll)
+        return Acore::Containers::SelectRandomContainerElement(fillers);
+
+    // No fillers and the explicit walk missed: guaranteed fallback. Pick one valid explicit
+    // member weighted by its RAW chance (= vanilla conditional-on-drop distribution). Uses the
+    // raw item->chance deliberately (OnItemRoll already had its say in the walk above).
+    if (!possibleLoot.empty())
+    {
+        float totalChance = 0.0f;
+        for (LootStoreItemList::const_iterator itr = possibleLoot.begin(); itr != possibleLoot.end(); ++itr)
+            totalChance += (*itr)->chance;
+
+        if (totalChance > 0.0f)
+        {
+            float pick = (float)rand_norm() * totalChance;
+            for (LootStoreItemList::const_iterator itr = possibleLoot.begin(); itr != possibleLoot.end(); ++itr)
+            {
+                pick -= (*itr)->chance;
+                if (pick < 0.0f)
+                    return *itr;
+            }
+            return possibleLoot.back();                    // float-rounding guard
+        }
+    }
+
+    return nullptr;                                        // genuinely empty group
 }
 
 // True if group includes at least 1 quest drop entry
