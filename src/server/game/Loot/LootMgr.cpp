@@ -1728,16 +1728,18 @@ void LootTemplate::Process(Loot& loot, LootStore const& store, uint16 lootMode, 
     }
 
     // Rolling non-grouped items
+    bool const uncapChance = sWorld->getBoolConfig(CONFIG_LOOT_UNCAP_CHANCE);
     for (LootStoreItemList::const_iterator i = Entries.begin(); i != Entries.end(); ++i)
     {
         LootStoreItem* item = *i;
         if (!(item->lootmode & lootMode))                         // Do not add if mode mismatch
             continue;
-        if (!item->Roll(rate, player, loot, store))
-            continue;                                           // Bad luck for the entry
 
-        if (item->reference)                                    // References processing
+        if (item->reference)                                    // References: keep vanilla single-roll
         {
+            if (!item->Roll(rate, player, loot, store))
+                continue;                                       // Bad luck for the entry
+
             LootTemplate const* Referenced = LootTemplates_Reference.GetLootFor(std::abs(item->reference));
             if (!Referenced)
                 continue;                                       // Error message already printed at loading stage
@@ -1750,9 +1752,16 @@ void LootTemplate::Process(Loot& loot, LootStore const& store, uint16 lootMode, 
         }
         else
         {
-            // Plain entries (not a reference, not grouped)
-            sScriptMgr->OnBeforeDropAddItem(player, loot, rate, lootMode, item, store);
-            loot.AddItem(*item);                                // Chance is already checked, just add
+            // Plain entries (not a reference, not grouped). With UncapChance, an
+            // effective chance >100% drops multiple copies; otherwise vanilla 0/1.
+            uint32 const copies = uncapChance
+                ? item->RollCount(rate, player, loot, store)
+                : (item->Roll(rate, player, loot, store) ? 1u : 0u);
+            for (uint32 c = 0; c < copies; ++c)
+            {
+                sScriptMgr->OnBeforeDropAddItem(player, loot, rate, lootMode, item, store);
+                loot.AddItem(*item);                            // AddItem self-caps at MAX_NR_LOOT_ITEMS
+            }
         }
     }
 
