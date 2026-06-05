@@ -313,6 +313,11 @@ void LootStore::ReportInvalidCount(uint32 lootId, const char* ownerType, uint32 
 // --------- LootStoreItem ---------
 //
 
+// Upper bound on grouped overflow picks: the LootGroupInvalidSelector dedup can't yield more
+// distinct items than this anyway, so this only bounds pathological-rate CPU and the
+// uint32 -> uint16 narrowing into ProcessGuaranteed. MAX_NR_LOOT_ITEMS == 18.
+static uint16 const MAX_GROUP_OVERFLOW_ROLLS = MAX_NR_LOOT_ITEMS;
+
 // Converts an effective percentage (may exceed 100) into a drop count:
 // the whole-hundreds are guaranteed, the remainder is a single bonus roll.
 // eff=60 -> 0 or 1 (60%); eff=150 -> 1 + 50%; eff=300 -> 3. File-local; used by
@@ -1922,7 +1927,23 @@ void LootTemplate::Process(Loot& loot, LootStore const& store, uint16 lootMode, 
             {
                 uint32 groupAmount = sWorld->getRate(RATE_DROP_ITEM_GROUP_AMOUNT);
                 sScriptMgr->OnAfterCalculateLootGroupAmount(player, loot, lootMode, groupAmount, store);
-                group->Process(loot, player, store, lootMode, groupAmount);
+
+                if (sWorld->getBoolConfig(CONFIG_LOOT_UNCAP_CHANCE))
+                {
+                    // The group's quality-boosted total chance, uncapped, sets HOW MANY weighted
+                    // picks it makes (each a guaranteed RollGuaranteed pick by raw weighting).
+                    // Composes with GroupAmount. 0 rolls => the group missed its frac chance and
+                    // drops nothing (as a vanilla sub-100% group can).
+                    uint32 rolls = groupAmount * RollOverflowCount(group->EffectiveBoostedChance(store));
+                    if (rolls > MAX_GROUP_OVERFLOW_ROLLS)
+                        rolls = MAX_GROUP_OVERFLOW_ROLLS;
+                    if (rolls > 0)
+                        group->ProcessGuaranteed(loot, player, store, lootMode, static_cast<uint16>(rolls));
+                }
+                else
+                {
+                    group->Process(loot, player, store, lootMode, groupAmount);   // vanilla, byte-for-byte
+                }
             }
             else
             {
