@@ -309,7 +309,8 @@ void LootStore::ReportInvalidCount(uint32 lootId, const char* ownerType, uint32 
 // Converts an effective percentage (may exceed 100) into a drop count:
 // the whole-hundreds are guaranteed, the remainder is a single bonus roll.
 // eff=60 -> 0 or 1 (60%); eff=150 -> 1 + 50%; eff=300 -> 3. File-local; used by
-// LootStoreItem::RollCount and the grouped-loot path below.
+// LootStoreItem::RollCount (the grouped-loot overflow path "B" is deferred — see
+// the loot-chance-overflow-B backlog item).
 static uint32 RollOverflowCount(float effectivePct)
 {
     if (effectivePct <= 0.0f)
