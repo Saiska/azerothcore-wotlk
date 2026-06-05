@@ -144,6 +144,10 @@ struct LootStoreItem
     {}
 
     bool Roll(bool rate, Player const* player, Loot& loot, LootStore const& store) const;   // Checks if the entry takes it's chance (at loot generation)
+    // Like Roll(), but returns how many copies to drop with the 100% ceiling removed:
+    // floor(eff/100) guaranteed + a frac chance of one more (eff = chance * qualityRate, uncapped).
+    // For eff <= 100 this returns 0 or 1, reproducing Roll() exactly.
+    uint32 RollCount(bool rate, Player const* player, Loot& loot, LootStore const& store) const;
     [[nodiscard]] bool IsValid(LootStore const& store, uint32 entry) const;
     // Checks correctness of values
 };

@@ -306,6 +306,22 @@ void LootStore::ReportInvalidCount(uint32 lootId, const char* ownerType, uint32 
 // --------- LootStoreItem ---------
 //
 
+// Converts an effective percentage (may exceed 100) into a drop count:
+// the whole-hundreds are guaranteed, the remainder is a single bonus roll.
+// eff=60 -> 0 or 1 (60%); eff=150 -> 1 + 50%; eff=300 -> 3. File-local; used by
+// LootStoreItem::RollCount and the grouped-loot path below.
+static uint32 RollOverflowCount(float effectivePct)
+{
+    if (effectivePct <= 0.0f)
+        return 0;
+
+    uint32 guaranteed = static_cast<uint32>(effectivePct / 100.0f);
+    float remainder = effectivePct - static_cast<float>(guaranteed) * 100.0f;   // [0, 100)
+    if (remainder > 0.0f && roll_chance_f(remainder))
+        ++guaranteed;
+    return guaranteed;
+}
+
 // Checks if the entry (quest, non-quest, reference) takes it's chance (at loot generation)
 // RATE_DROP_ITEMS is no longer used for all types of entries
 bool LootStoreItem::Roll(bool rate, Player const* player, Loot& loot, LootStore const& store) const
@@ -327,6 +343,29 @@ bool LootStoreItem::Roll(bool rate, Player const* player, Loot& loot, LootStore 
         qualityModifier = sWorld->getRate(qualityToRate[pProto->Quality]);
 
     return roll_chance_f(_chance * qualityModifier);
+}
+
+uint32 LootStoreItem::RollCount(bool rate, Player const* player, Loot& loot, LootStore const& store) const
+{
+    float _chance = chance;
+
+    if (!sScriptMgr->OnItemRoll(player, this, _chance, loot, store))
+        return 0;
+
+    // References keep their single-roll semantics (their quantity is handled by
+    // Rate.Drop.Item.ReferencedAmount, not by chance overflow).
+    if (reference)
+        return roll_chance_f(_chance * (rate ? sWorld->getRate(RATE_DROP_ITEM_REFERENCED) : 1.0f)) ? 1u : 0u;
+
+    ItemTemplate const* pProto = sObjectMgr->GetItemTemplate(itemid);
+    float qualityModifier = 1.0f;
+    if (pProto && pProto->Quality < ITEM_QUALITY_HEIRLOOM && rate)
+        qualityModifier = sWorld->getRate(qualityToRate[pProto->Quality]);
+
+    // Uncapped: no base->=100 short-circuit, so the quality multiplier also lifts
+    // guaranteed drops (a 100% Epic at Epic=3 -> 3 copies). To instead keep base->=100
+    // items single, add:  if (_chance >= 100.0f) return 1;  here.
+    return RollOverflowCount(_chance * qualityModifier);
 }
 
 // Checks correctness of values
