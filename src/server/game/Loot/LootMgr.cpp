@@ -1552,6 +1552,50 @@ void LootTemplate::LootGroup::Process(Loot& loot, Player const* player, LootStor
     }
 }
 
+// Like Process(), but makes `iterations` GUARANTEED weighted picks (each via RollGuaranteed —
+// no chance-miss). The boosted chance decides how many; RollGuaranteed decides which (raw
+// weighting). The LootGroupInvalidSelector dedup inside RollGuaranteed makes the picks distinct
+// (equippables cap 1, others cap 3) and empties the group when exhausted -> the nullptr break
+// self-limits the loop. References inside the group expand exactly as in Process.
+void LootTemplate::LootGroup::ProcessGuaranteed(Loot& loot, Player const* player, LootStore const& store, uint16 lootMode, uint16 iterations) const
+{
+    bool rate = store.IsRatesAllowed();
+
+    for (uint16 n = 0; n < iterations; ++n)
+    {
+        LootStoreItem const* item = RollGuaranteed(loot, player, store, lootMode);
+        if (!item)
+            break;                                          // group exhausted (dedup emptied it)
+
+        if (item->reference) // References processing
+        {
+            if (LootTemplate const* Referenced = LootTemplates_Reference.GetLootFor(std::abs(item->reference)))
+            {
+                uint32 maxcount = uint32(float(item->maxcount) * sWorld->getRate(RATE_DROP_ITEM_REFERENCED_AMOUNT));
+                sScriptMgr->OnAfterRefCount(player, loot, rate, lootMode, const_cast<LootStoreItem*>(item), maxcount, store);
+                for (uint32 loop = 0; loop < maxcount; ++loop) // Ref multiplicator
+                    Referenced->Process(loot, store, lootMode, player, 0, false);
+            }
+        }
+        else
+        {
+            // Plain entries (not a reference, not grouped)
+            size_t const beforeCount = loot.items.size();
+            sScriptMgr->OnBeforeDropAddItem(player, loot, rate, lootMode, const_cast<LootStoreItem*>(item), store);
+            loot.AddItem(*item); // Chance is already guaranteed, just add
+
+            // AddItem self-caps at MAX_NR_LOOT_ITEMS; if the loot list is full it added
+            // nothing, so the dedup can't advance and RollGuaranteed would re-pick the same
+            // item -> stop instead of spinning.
+            if (loot.items.size() == beforeCount)
+                break;
+
+            if (item->needs_quest)                          // never multiply a quest item (mirror Process)
+                break;
+        }
+    }
+}
+
 // Overall chance for the group without equal chanced items
 float LootTemplate::LootGroup::RawTotalChance() const
 {
