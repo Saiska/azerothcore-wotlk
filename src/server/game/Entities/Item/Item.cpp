@@ -721,6 +721,23 @@ void Item::SetState(ItemUpdateState state, Player* forplayer)
             RemoveFromUpdateQueueOf(forplayer);
             forplayer->DeleteRefundReference(GetGUID());
         }
+        // [SaveInv-strand DETECTOR — TEMPORARY, remove after the trigger is fixed]
+        // If the item is still queued here, the dequeue above silently no-op'd
+        // (owner-GUID mismatch / blocked queue) or forplayer was null. The delete
+        // below then strands a freed pointer in Player::m_itemUpdateQueue, which
+        // later crashes Player::_SaveInventory (PlayerStorage.cpp:7421). Log it.
+        if (IsInUpdateQueue())
+        {
+            Player* strandOwner = forplayer ? forplayer : GetOwner();
+            LOG_ERROR("entities.player.items",
+                "[SaveInv-strand] deleting item still in update queue: entry {} guid {} state {} queuePos {} ownerGUID {} forplayer {} | owner {} map {} instance {}",
+                GetEntry(), GetGUID().ToString(), uint32(uState), GetQueuePos(),
+                GetOwnerGUID().ToString(),
+                forplayer ? forplayer->GetGUID().ToString() : "none",
+                strandOwner ? strandOwner->GetName() : "unknown",
+                strandOwner ? strandOwner->GetMapId() : 0,
+                strandOwner ? strandOwner->GetInstanceId() : 0);
+        }
         delete this;
         return;
     }
