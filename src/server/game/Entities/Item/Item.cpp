@@ -403,6 +403,14 @@ void Item::SaveToDB(CharacterDatabaseTransaction trans)
                 if (!isInTransaction)
                     CharacterDatabase.CommitTransaction(trans);
 
+                // An item must not be in-world when deleted: Object::~Object ABORTs on
+                // IsInWorld(). Some removal paths (asymmetric RemoveFromWorld guards in
+                // Player::DestroyItem / _StoreItem) can leave an ITEM_REMOVED item still
+                // m_inWorld; this is the single chokepoint every removed item passes
+                // before delete, so enforce the invariant here.
+                if (IsInWorld())
+                    RemoveFromWorld();
+
                 delete this;
                 return;
             }
