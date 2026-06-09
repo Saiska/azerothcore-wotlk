@@ -281,12 +281,12 @@ Item::Item()
 
 Item::~Item()
 {
-    // [SaveInv-strand DETECTOR — TEMPORARY] Catch-all: an item must never be deleted while
-    // still referenced in a Player::m_itemUpdateQueue (uQueuePos != -1). If it is, that queue
-    // slot keeps a freed pointer and Player::_SaveInventory later derefs it
-    // (PlayerStorage.cpp:7421 -> Object::GetGuidValue) => C0000005. Log the strand at the moment
-    // of destruction, regardless of which path failed to dequeue.
-    if (IsInUpdateQueue())
+    // [SaveInv-strand WATCHDOG — TEMPORARY, remove after the CanEquipNewItem fix is verified]
+    // An ITEM_NEW/CHANGED item must never be deleted while still referenced in a
+    // Player::m_itemUpdateQueue (that strands a freed pointer => _SaveInventory C0000005).
+    // Normal ITEM_REMOVED save-deletes are filtered out; this should stay SILENT now that
+    // CanEquipNewItem dequeues its probe before deleting it.
+    if (IsInUpdateQueue() && uState != ITEM_REMOVED)
     {
         Player* strandOwner = GetOwner();
         LOG_ERROR("entities.player.items",
@@ -749,23 +749,6 @@ void Item::SetState(ItemUpdateState state, Player* forplayer)
             RemoveFromUpdateQueueOf(forplayer);
             forplayer->DeleteRefundReference(GetGUID());
         }
-        // [SaveInv-strand DETECTOR — TEMPORARY, remove after the trigger is fixed]
-        // If the item is still queued here, the dequeue above silently no-op'd
-        // (owner-GUID mismatch / blocked queue) or forplayer was null. The delete
-        // below then strands a freed pointer in Player::m_itemUpdateQueue, which
-        // later crashes Player::_SaveInventory (PlayerStorage.cpp:7421). Log it.
-        if (IsInUpdateQueue())
-        {
-            Player* strandOwner = forplayer ? forplayer : GetOwner();
-            LOG_ERROR("entities.player.items",
-                "[SaveInv-strand] deleting item still in update queue: entry {} guid {} state {} queuePos {} ownerGUID {} forplayer {} | owner {} map {} instance {}",
-                GetEntry(), GetGUID().ToString(), uint32(uState), GetQueuePos(),
-                GetOwnerGUID().ToString(),
-                forplayer ? forplayer->GetGUID().ToString() : "none",
-                strandOwner ? strandOwner->GetName() : "unknown",
-                strandOwner ? strandOwner->GetMapId() : 0,
-                strandOwner ? strandOwner->GetInstanceId() : 0);
-        }
         delete this;
         return;
     }
@@ -816,15 +799,6 @@ void Item::RemoveFromUpdateQueueOf(Player* player)
     if (player->GetGUID() != GetOwnerGUID())
     {
         LOG_DEBUG("entities.player.items", "Item::RemoveFromUpdateQueueOf - Owner's guid ({}) and player's guid ({}) don't match!", GetOwnerGUID().ToString(), player->GetGUID().ToString());
-        // [SaveInv-strand DETECTOR — TEMPORARY] The dequeue NO-OPs here because the item's owner
-        // changed after it was enqueued: it STAYS in this player's m_itemUpdateQueue, and when the
-        // item is later freed that slot becomes a dangling pointer (the _SaveInventory C0000005
-        // strand). Names the queue-holding player AND the new owner.
-        LOG_ERROR("entities.player.items",
-            "[SaveInv-strand] dequeue NO-OP (owner-GUID mismatch) — item STAYS queued: entry {} guid {} state {} queuePos {} newOwnerGUID {} | dequeue-attempted-by {} ({}) map {} instance {}",
-            GetEntry(), GetGUID().ToString(), uint32(uState), GetQueuePos(),
-            GetOwnerGUID().ToString(),
-            player->GetName(), player->GetGUID().ToString(), player->GetMapId(), player->GetInstanceId());
         return;
     }
 

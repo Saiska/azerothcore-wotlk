@@ -1888,6 +1888,12 @@ InventoryResult Player::CanEquipNewItem(uint8 slot, uint16& dest, uint32 item, b
     if (pItem)
     {
         InventoryResult result = CanEquipItem(slot, dest, pItem, swap);
+        // The probe item is a throwaway; an equip-check path can leave it referenced in this
+        // player's m_itemUpdateQueue. Deleting it while queued strands a freed pointer that
+        // Player::_SaveInventory later derefs (PlayerStorage.cpp:7421 -> Object::GetGuidValue =>
+        // C0000005). Dequeue the probe before destroying it. No-op in stock (probe not queued).
+        if (pItem->IsInUpdateQueue())
+            pItem->RemoveFromUpdateQueueOf(const_cast<Player*>(this));
         delete pItem;
         return result;
     }
