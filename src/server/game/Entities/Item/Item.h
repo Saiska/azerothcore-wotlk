@@ -223,6 +223,7 @@ public:
     Item* CloneItem(uint32 count, Player const* player = nullptr) const;
 
     Item();
+    ~Item() override;
 
     virtual bool Create(ObjectGuid::LowType guidlow, uint32 itemid, Player const* owner);
 

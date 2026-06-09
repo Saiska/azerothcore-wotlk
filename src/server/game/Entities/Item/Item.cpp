@@ -279,6 +279,26 @@ Item::Item()
     m_paidExtendedCost = 0;
 }
 
+Item::~Item()
+{
+    // [SaveInv-strand DETECTOR — TEMPORARY] Catch-all: an item must never be deleted while
+    // still referenced in a Player::m_itemUpdateQueue (uQueuePos != -1). If it is, that queue
+    // slot keeps a freed pointer and Player::_SaveInventory later derefs it
+    // (PlayerStorage.cpp:7421 -> Object::GetGuidValue) => C0000005. Log the strand at the moment
+    // of destruction, regardless of which path failed to dequeue.
+    if (IsInUpdateQueue())
+    {
+        Player* strandOwner = GetOwner();
+        LOG_ERROR("entities.player.items",
+            "[SaveInv-strand] item DESTROYED while still in update queue: entry {} guid {} state {} queuePos {} ownerGUID {} | owner {} map {} instance {}",
+            GetEntry(), GetGUID().ToString(), uint32(uState), GetQueuePos(),
+            GetOwnerGUID().ToString(),
+            strandOwner ? strandOwner->GetName() : "unknown",
+            strandOwner ? strandOwner->GetMapId() : 0,
+            strandOwner ? strandOwner->GetInstanceId() : 0);
+    }
+}
+
 bool Item::Create(ObjectGuid::LowType guidlow, uint32 itemid, Player const* owner)
 {
     Object::_Create(guidlow, 0, HighGuid::Item);
@@ -796,6 +816,15 @@ void Item::RemoveFromUpdateQueueOf(Player* player)
     if (player->GetGUID() != GetOwnerGUID())
     {
         LOG_DEBUG("entities.player.items", "Item::RemoveFromUpdateQueueOf - Owner's guid ({}) and player's guid ({}) don't match!", GetOwnerGUID().ToString(), player->GetGUID().ToString());
+        // [SaveInv-strand DETECTOR — TEMPORARY] The dequeue NO-OPs here because the item's owner
+        // changed after it was enqueued: it STAYS in this player's m_itemUpdateQueue, and when the
+        // item is later freed that slot becomes a dangling pointer (the _SaveInventory C0000005
+        // strand). Names the queue-holding player AND the new owner.
+        LOG_ERROR("entities.player.items",
+            "[SaveInv-strand] dequeue NO-OP (owner-GUID mismatch) — item STAYS queued: entry {} guid {} state {} queuePos {} newOwnerGUID {} | dequeue-attempted-by {} ({}) map {} instance {}",
+            GetEntry(), GetGUID().ToString(), uint32(uState), GetQueuePos(),
+            GetOwnerGUID().ToString(),
+            player->GetName(), player->GetGUID().ToString(), player->GetMapId(), player->GetInstanceId());
         return;
     }
 
