@@ -88,6 +88,22 @@ void ScriptMgr::OnPlayerbotUpdateSessions(Player* player)
     });
 }
 
+void ScriptMgr::OnPlayerbotActivityStart(Player* bot, uint32 activity)
+{
+    ExecuteScript<PlayerbotScript>([&](PlayerbotScript* script)
+    {
+        script->OnPlayerbotActivityStart(bot, activity);
+    });
+}
+
+void ScriptMgr::OnPlayerbotActivityFinish(Player* bot, uint32 activity)
+{
+    ExecuteScript<PlayerbotScript>([&](PlayerbotScript* script)
+    {
+        script->OnPlayerbotActivityFinish(bot, activity);
+    });
+}
+
 void ScriptMgr::OnPlayerbotLogout(Player* player)
 {
     ExecuteScript<PlayerbotScript>([&](PlayerbotScript* script)
