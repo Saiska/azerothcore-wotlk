@@ -1,0 +1,28 @@
+[worldserver]
+
+#
+#    LootMultipliers.Enable
+#        Master switch for the category loot multiplier. Default: 1 (on)
+#
+LootMultipliers.Enable = 1
+
+#
+#    LootMultipliers.CategoryRates
+#        Whitespace-separated list of rules that multiply the QUANTITY (item count) of
+#        looted items by item category. Each rule is:
+#            <class>=<mult>            apply to every item of that item class
+#            <class>:<subclass>=<mult> apply only to that class+subclass (overrides the
+#                                      class-wide rule for the same class)
+#        Class/subclass are the numeric item_template.class / .subclass values
+#        (see ItemTemplate.h). Applies to ALL loot sources (creature, gameobject,
+#        gathering, fishing, disenchant, ...), grouped and ungrouped. Quest items are
+#        never multiplied. Fractional mults give a chance-based bonus (1.5 = +50% chance
+#        of one extra unit). Rules with mult <= 1.0 are ignored.
+#
+#        Common classes: 3 = Gem, 5 = Reagent, 7 = Trade Goods (crafting mats).
+#        class 7 subclasses: 5 Cloth, 6 Leather, 7 Metal&Stone, 9 Herb, 12 Enchanting.
+#
+#        Default: "3=2.0 7=2.0"  (gems + all trade goods x2 — subsumes the old
+#        gathering-yield x2 and adds combat-drop materials)
+#
+LootMultipliers.CategoryRates = "3=2.0 7=2.0"

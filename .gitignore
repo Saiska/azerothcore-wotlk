@@ -11,8 +11,8 @@
 !/modules/*.h
 !/modules/*.cmake
 # In-tree (non-submodule) local module — track its sources
-!/modules/mod-gathering-yield
-!/modules/mod-gathering-yield/**
+!/modules/mod-loot-multipliers
+!/modules/mod-loot-multipliers/**
 /build*/
 /var/*
 !/var/build/.gitkeep
