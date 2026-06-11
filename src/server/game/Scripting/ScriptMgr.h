@@ -124,6 +124,8 @@ public:
     virtual void OnPlayerbotUpdateSessions(Player* /*player*/) { }
     virtual void OnPlayerbotLogout(Player* /*player*/) { }
     virtual void OnPlayerbotLogoutBots() { }
+    virtual void OnPlayerbotActivityStart(Player* /*bot*/, uint32 /*activity*/) { }
+    virtual void OnPlayerbotActivityFinish(Player* /*bot*/, uint32 /*activity*/) { }
 };
 
 class ScriptMgr
@@ -754,6 +756,8 @@ public: /* PlayerbotScript */
     void OnPlayerbotUpdateSessions(Player* player);
     void OnPlayerbotLogout(Player* player);
     void OnPlayerbotLogoutBots();
+    void OnPlayerbotActivityStart(Player* bot, uint32 activity);
+    void OnPlayerbotActivityFinish(Player* bot, uint32 activity);
 
 public: /* TicketScript */
 
