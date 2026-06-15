@@ -60,6 +60,13 @@ namespace GameTime
         return GameTime - StartTime;
     }
 
+    Seconds CalculateCalendarTime(Seconds savedCalendar, Seconds bootReal, Seconds realNow, float speed)
+    {
+        int64 elapsedReal = (realNow - bootReal).count();
+        int64 elapsedCalendar = static_cast<int64>(static_cast<double>(elapsedReal) * speed);
+        return savedCalendar + Seconds(elapsedCalendar);
+    }
+
     void UpdateGameTimers()
     {
         GameTime = GetEpochTime();
