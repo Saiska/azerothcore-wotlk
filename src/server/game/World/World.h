@@ -243,6 +243,9 @@ public:
     [[nodiscard]] std::string const& GetRealmName() const override { return _realmName; } // pussywizard
     void SetRealmName(std::string name) override { _realmName = name; } // pussywizard
 
+    void LoadRealmTime();
+    void SaveRealmTime();
+
 protected:
     void _UpdateGameTime();
     // callback for UpdateRealmCharacters

@@ -4762,3 +4762,21 @@ Respawn.ForceCompatibilityMode = 0
 # GAME SETTINGS END                                                                               #
 #                                                                                                 #
 ###################################################################################################
+
+#
+#    RealmTime.Speed
+#        Multiplier for the realm CALENDAR only (day/night cycle + holiday/event cycling).
+#        Does NOT affect gameplay timers (auctions, mail, respawns, cooldowns, AFK-kick).
+#        1.0 = normal real-time. 8.0 = a day in ~3 real hours, a year in ~1.5 real months.
+#        Default: 8.0
+#
+RealmTime.Speed = 8.0
+
+#
+#    RealmTime.Epoch
+#        Start date for the realm calendar, "YYYY-MM-DD HH:MM:SS" (local). Used ONLY to seed
+#        an empty realm_time table on first boot; ignored once the row exists. Year displays
+#        client-side as years-since-2000 (2027 -> "Year 27").
+#        Default: "2027-12-15 00:00:00"
+#
+RealmTime.Epoch = "2027-12-15 00:00:00"

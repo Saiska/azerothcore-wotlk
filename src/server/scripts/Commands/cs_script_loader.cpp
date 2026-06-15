@@ -69,6 +69,7 @@ void AddSC_cache_commandscript();
 void AddSC_item_commandscript();
 void AddSC_player_settings_commandscript();
 void AddSC_worldstate_commandscript();
+void AddSC_realmtime_commandscript();
 
 // The name of this function should match:
 // void Add${NameOfDirectory}Scripts()
@@ -127,4 +128,5 @@ void AddCommandsScripts()
     AddSC_item_commandscript();
     AddSC_player_settings_commandscript();
     AddSC_worldstate_commandscript();
+    AddSC_realmtime_commandscript();
 }

@@ -29,6 +29,7 @@ target_link_libraries(
         gtest_main
         gmock_main
         game-interface
+        acore-compile-option-interface
 )
 
 # Add module test sources if any modules registered tests

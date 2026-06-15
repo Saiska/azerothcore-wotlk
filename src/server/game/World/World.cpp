@@ -297,6 +297,53 @@ void World::LoadConfigSettings(bool reload)
     sScriptMgr->OnAfterConfigLoad(reload);
 }
 
+void World::LoadRealmTime()
+{
+    float speed = getFloatConfig(CONFIG_FLOAT_REALM_TIME_SPEED);
+
+    time_t savedCalendar = 0;
+    if (QueryResult result = CharacterDatabase.Query("SELECT calendar_time FROM realm_time WHERE id = 0"))
+    {
+        savedCalendar = time_t((*result)[0].Get<int64>());
+    }
+    else
+    {
+        // First boot: seed from RealmTime.Epoch ("YYYY-MM-DD HH:MM:SS"), local time.
+        std::string epoch(getStringConfig(CONFIG_REALM_TIME_EPOCH));
+        std::tm tmv{};
+        int y = 0, mo = 0, d = 0, h = 0, mi = 0, s = 0;
+        if (std::sscanf(epoch.c_str(), "%d-%d-%d %d:%d:%d", &y, &mo, &d, &h, &mi, &s) == 6 && y >= 2000)
+        {
+            tmv.tm_year = y - 1900; tmv.tm_mon = mo - 1; tmv.tm_mday = d;
+            tmv.tm_hour = h; tmv.tm_min = mi; tmv.tm_sec = s; tmv.tm_isdst = -1;
+            savedCalendar = std::mktime(&tmv);
+        }
+        if (savedCalendar <= 0)
+        {
+            LOG_ERROR("server.loading", "RealmTime.Epoch '{}' invalid; falling back to real time.", epoch);
+            savedCalendar = GameTime::GetGameTime().count();
+        }
+        time_t now = GameTime::GetGameTime().count();
+        CharacterDatabase.Execute("INSERT INTO realm_time (id, calendar_time, real_anchor, speed, updated_at) VALUES (0, {}, {}, {}, {})",
+            int64(savedCalendar), int64(now), speed, int64(now));
+    }
+
+    GameTime::InitCalendarTime(Seconds(savedCalendar), speed);
+
+    std::tm lt = Acore::Time::TimeBreakdown(GameTime::GetCalendarTime().count());
+    LOG_INFO("server.loading", "RealmTime: calendar={:04}-{:02}-{:02} {:02}:{:02} speed={}",
+        lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday, lt.tm_hour, lt.tm_min,
+        getFloatConfig(CONFIG_FLOAT_REALM_TIME_SPEED));
+}
+
+void World::SaveRealmTime()
+{
+    time_t cal = GameTime::GetCalendarTime().count();
+    time_t now = GameTime::GetGameTime().count();
+    CharacterDatabase.Execute("UPDATE realm_time SET calendar_time = {}, real_anchor = {}, speed = {}, updated_at = {} WHERE id = 0",
+        int64(cal), int64(now), getFloatConfig(CONFIG_FLOAT_REALM_TIME_SPEED), int64(now));
+}
+
 /// Initialize the World
 void World::SetInitialWorldSettings()
 {
@@ -629,6 +676,7 @@ void World::SetInitialWorldSettings()
     sPoolMgr->LoadFromDB();
 
     LOG_INFO("server.loading", "Loading Game Event Data...");               // must be after loading pools fully
+    LoadRealmTime();                                                         // Must be before LoadHolidayDates (event scheduler reads calendar)
     sGameEventMgr->LoadHolidayDates();                           // Must be after loading DBC
     sGameEventMgr->LoadFromDB();                                 // Must be after loading holiday dates
 
@@ -1279,6 +1327,7 @@ void World::Update(uint32 diff)
         stmt->SetData(2, realm.Id.Realm);
         stmt->SetData(3, uint32(GameTime::GetStartTime().count()));
         LoginDatabase.Execute(stmt);
+        SaveRealmTime();
     }
 
     ///- Process Game events when necessary
@@ -1449,7 +1498,10 @@ void World::_UpdateGameTime()
         if (_shutdownTimer <= elapsed.count())
         {
             if (!(_shutdownMask & SHUTDOWN_MASK_IDLE) || sWorldSessionMgr->GetActiveAndQueuedSessionCount() == 0)
+            {
+                SaveRealmTime();
                 _stopEvent = true;                         // exist code already set
+            }
             else
                 _shutdownTimer = 1;                        // minimum timer value to wait idle state
         }

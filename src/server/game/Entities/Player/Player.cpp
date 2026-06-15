@@ -11567,8 +11567,8 @@ void Player::SendInitialPacketsBeforeAddToMap()
     SendEquipmentSetList();
 
     data.Initialize(SMSG_LOGIN_SETTIMESPEED, 4 + 4 + 4);
-    data.AppendPackedTime(GameTime::GetGameTime().count());
-    data << float(0.01666667f);                             // game speed
+    data.AppendPackedTime(GameTime::GetCalendarTime().count());
+    data << float(0.01666667f * sWorld->getFloatConfig(CONFIG_FLOAT_REALM_TIME_SPEED)); // accelerated day/night
     data << uint32(0);                                      // added in 3.1.2
     SendDirectMessage(&data);
 

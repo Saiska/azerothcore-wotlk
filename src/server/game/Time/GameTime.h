@@ -41,6 +41,13 @@ namespace GameTime
     /// Uptime
     AC_GAME_API Seconds GetUptime();
 
+    // Accelerated realm-calendar accessors (feature: game-time-speed-knob)
+    AC_GAME_API Seconds GetCalendarTime();
+    // Anchor the calendar clock at boot: savedCalendar = persisted value, bootReal = now, speed = N.
+    AC_GAME_API void InitCalendarTime(Seconds savedCalendar, float speed);
+    // Pure: calendarTime = savedCalendar + (realNow - bootReal) * speed. No globals — unit-testable.
+    AC_GAME_API Seconds CalculateCalendarTime(Seconds savedCalendar, Seconds bootReal, Seconds realNow, float speed);
+
     /// Uptime since a given time point
     inline Microseconds Elapsed(TimePoint start)
     {
