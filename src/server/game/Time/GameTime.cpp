@@ -30,6 +30,12 @@ namespace GameTime
     SystemTimePoint GameTimeSystemPoint = SystemTimePoint::min();
     TimePoint GameTimeSteadyPoint = TimePoint::min();
 
+    Seconds CalendarTime = GetEpochTime();
+    Seconds CalendarSeed = GetEpochTime();   // persisted savedCalendar (anchor base)
+    Seconds CalendarBootReal = GetEpochTime();
+    float   CalendarSpeed = 1.0f;
+    bool    CalendarInitialized = false;
+
     Seconds GetStartTime()
     {
         return StartTime;
@@ -38,6 +44,20 @@ namespace GameTime
     Seconds GetGameTime()
     {
         return GameTime;
+    }
+
+    Seconds GetCalendarTime()
+    {
+        return CalendarTime;
+    }
+
+    void InitCalendarTime(Seconds savedCalendar, float speed)
+    {
+        CalendarSeed = savedCalendar;
+        CalendarSpeed = speed;
+        CalendarBootReal = GetEpochTime();
+        CalendarTime = savedCalendar;
+        CalendarInitialized = true;
     }
 
     Milliseconds GetGameTimeMS()
@@ -73,5 +93,7 @@ namespace GameTime
         GameMSTime = GetTimeMS();
         GameTimeSystemPoint = system_clock::now();
         GameTimeSteadyPoint = steady_clock::now();
+        if (CalendarInitialized)
+            CalendarTime = CalculateCalendarTime(CalendarSeed, CalendarBootReal, GameTime, CalendarSpeed);
     }
 }
