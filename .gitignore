@@ -13,6 +13,8 @@
 # In-tree (non-submodule) local module — track its sources
 !/modules/mod-loot-multipliers
 !/modules/mod-loot-multipliers/**
+!/modules/mod-player-vitals
+!/modules/mod-player-vitals/**
 /build*/
 /var/*
 !/var/build/.gitkeep
