@@ -408,6 +408,7 @@ void WorldConfig::BuildConfigCache()
     SetConfigValue<float>(CONFIG_LISTEN_RANGE_SAY, "ListenRange.Say", 40.0f);
     SetConfigValue<float>(CONFIG_LISTEN_RANGE_TEXTEMOTE, "ListenRange.TextEmote", 40.0f);
     SetConfigValue<float>(CONFIG_LISTEN_RANGE_YELL, "ListenRange.Yell", 300.0f);
+    SetConfigValue<float>(CONFIG_FLOAT_REALM_TIME_SPEED, "RealmTime.Speed", 8.0f);
 
     SetConfigValue<uint32>(CONFIG_BATTLEGROUND_PREP_TIME, "Battleground.PrepTime", 120);
     SetConfigValue<uint32>(CONFIG_BATTLEGROUND_OVERRIDE_LOWLEVELS_MINPLAYERS, "Battleground.Override.LowLevels.MinPlayers", 0);
@@ -682,6 +683,7 @@ void WorldConfig::BuildConfigCache()
     SetConfigValue<uint32>(CONFIG_SCOURGEINVASION_COUNTER_THIRD, "ScourgeInvasion.CounterThird", 150);
 
     SetConfigValue<std::string>(CONFIG_NEW_CHAR_STRING, "PlayerStart.String", "");
+    SetConfigValue<std::string>(CONFIG_REALM_TIME_EPOCH, "RealmTime.Epoch", "2027-12-15 00:00:00");
 
     // Achievement
     SetConfigValue<uint32>(CONFIG_ACHIEVEMENT_REALM_FIRST_KILL_WINDOW, "Achievement.RealmFirstKillWindow", 60);
