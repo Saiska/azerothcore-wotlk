@@ -1,0 +1,21 @@
+[worldserver]
+
+#
+#    VitalsBoost.Enable
+#        Master switch for the player/bot max HP & mana multiplier. Default: 1 (on)
+#
+VitalsBoost.Enable = 1
+
+#
+#    VitalsBoost.Health.Multiplier
+#        Multiplies every player's and bot's MAX HEALTH. 1.0 = no change.
+#        Default: 1.20  (+20%)
+#
+VitalsBoost.Health.Multiplier = 1.20
+
+#
+#    VitalsBoost.Mana.Multiplier
+#        Multiplies MAX MANA (POWER_MANA only; rage/energy/runic untouched). 1.0 = no change.
+#        Default: 1.20  (+20%)
+#
+VitalsBoost.Mana.Multiplier = 1.20
