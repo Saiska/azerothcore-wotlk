@@ -597,6 +597,21 @@ MinRecordUpdateTimeDiff = 100
 SlowTickBreakdownMs = 250
 
 #
+#    MapGridLoadLogMs
+#        Diagnostic (observability only, no gameplay effect). When > 0, logs any
+#        single grid load whose full synchronous duration is >= this many
+#        milliseconds, to the time.update logger (Perf.log), as:
+#            "Slow grid load: map=<id> grid=[<x>,<y>] load=<a>ms balance=<b>ms total=<c>ms"
+#        where load = terrain/VMAP/MMAP from disk + creatures/GOs from DB, and
+#        balance = the dynamic collision-tree rebuild (full BIH rebuild).
+#        Use to attribute "maps"-phase tick spikes to a specific map/zone. Set low
+#        (e.g. 20-50) for a capture window; restore 0 after. Default: 0 (off, zero
+#        overhead).
+#
+
+MapGridLoadLogMs = 0
+
+#
 #    IPLocationFile
 #        Description: The path to your IP2Location database CSV file.
 #        Example:     "C:/acore/IP2LOCATION-LITE-DB1.CSV"

@@ -64,18 +64,20 @@ private:
 class AC_GAME_API WorldUpdateTime : public UpdateTime
 {
 public:
-    WorldUpdateTime() : UpdateTime(), _recordUpdateTimeInverval(0), _recordUpdateTimeMin(0), _lastRecordTime(0), _slowTickBreakdownMs(0) { }
+    WorldUpdateTime() : UpdateTime(), _recordUpdateTimeInverval(0), _recordUpdateTimeMin(0), _lastRecordTime(0), _slowTickBreakdownMs(0), _mapGridLoadLogMs(0) { }
     void LoadFromConfig();
     void SetRecordUpdateTimeInterval(Milliseconds t);
     void RecordUpdateTime(Milliseconds gameTimeMs, uint32 diff, uint32 sessionCount);
     void RecordUpdateTimeDuration(std::string const& text);
     uint32 GetSlowTickBreakdownMs() const { return _slowTickBreakdownMs; }
+    uint32 GetMapGridLoadLogMs() const { return _mapGridLoadLogMs; }
 
 private:
     Milliseconds _recordUpdateTimeInverval;
     Milliseconds _recordUpdateTimeMin;
     Milliseconds _lastRecordTime;
     uint32 _slowTickBreakdownMs;
+    uint32 _mapGridLoadLogMs;
 };
 
 AC_GAME_API extern WorldUpdateTime sWorldUpdateTime;

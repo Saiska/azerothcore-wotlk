@@ -154,6 +154,7 @@ void WorldUpdateTime::LoadFromConfig()
     _recordUpdateTimeInverval = Milliseconds(sConfigMgr->GetOption<uint32>("RecordUpdateTimeDiffInterval", 300000));
     _recordUpdateTimeMin = Milliseconds(sConfigMgr->GetOption<uint32>("MinRecordUpdateTimeDiff", 100));
     _slowTickBreakdownMs = sConfigMgr->GetOption<uint32>("SlowTickBreakdownMs", 250);
+    _mapGridLoadLogMs = sConfigMgr->GetOption<uint32>("MapGridLoadLogMs", 0);
 }
 
 void WorldUpdateTime::SetRecordUpdateTimeInterval(Milliseconds t)
