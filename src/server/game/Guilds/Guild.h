@@ -290,6 +290,17 @@ private:
 
 using SlotIds = std::set<uint8>;
 
+// Lightweight record of one equippable item sitting in a guild bank tab.
+// Returned by Guild::GetEquippableBankItems for the playerbots gear index.
+struct GuildBankEquipItem
+{
+    uint8  tabId;
+    uint8  slotId;
+    uint32 entry;
+    uint32 count;
+    int32  randomPropertyId;
+};
+
 class Guild
 {
 public: // pussywizard: public class Member
@@ -777,6 +788,10 @@ public:
     // Bank
     void SwapItems(Player* player, uint8 tabId, uint8 slotId, uint8 destTabId, uint8 destSlotId, uint32 splitedAmount);
     void SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uint8 slotId, uint8 playerBag, uint8 playerSlotId, uint32 splitedAmount);
+
+    // Appends every equippable (weapon/armor, real equip slot) bank item whose quality >= minQuality
+    // across all purchased tabs. Pure read; applies NO rights filtering (caller gates per-member).
+    void GetEquippableBankItems(uint32 minQuality, std::vector<GuildBankEquipItem>& out) const;
 
     // pussywizard
     uint64 GetTotalBankMoney() const { return m_bankMoney; }

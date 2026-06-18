@@ -2433,6 +2433,38 @@ void Guild::SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uin
         _MoveItems(&charData, &bankData, splitedAmount);
 }
 
+void Guild::GetEquippableBankItems(uint32 minQuality, std::vector<GuildBankEquipItem>& out) const
+{
+    for (uint8 tabId = 0; tabId < _GetPurchasedTabsSize(); ++tabId)
+    {
+        BankTab const* tab = GetBankTab(tabId);
+        if (!tab)
+            continue;
+
+        for (uint8 slotId = 0; slotId < GUILD_BANK_MAX_SLOTS; ++slotId)
+        {
+            Item* item = tab->GetItem(slotId);
+            if (!item)
+                continue;
+
+            ItemTemplate const* proto = item->GetTemplate();
+            if (!proto)
+                continue;
+
+            // Equippable gear only: weapon or armor with a real equip slot.
+            if (proto->Class != ITEM_CLASS_WEAPON && proto->Class != ITEM_CLASS_ARMOR)
+                continue;
+            if (proto->InventoryType == INVTYPE_NON_EQUIP)
+                continue;
+            if (proto->Quality < minQuality)
+                continue;
+
+            out.push_back(GuildBankEquipItem{
+                tabId, slotId, item->GetEntry(), item->GetCount(), item->GetItemRandomPropertyId() });
+        }
+    }
+}
+
 // Bank tabs
 void Guild::SetBankTabText(uint8 tabId, std::string_view text)
 {
