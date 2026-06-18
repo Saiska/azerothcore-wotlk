@@ -18,7 +18,10 @@
 #include "MoveSpline.h"
 #include "Creature.h"
 #include "Log.h"
+#include "Timer.h"
+#include <mutex>
 #include <sstream>
+#include <unordered_map>
 
 namespace Movement
 {
@@ -199,15 +202,46 @@ namespace Movement
 
     /// ============================================================================================
 
+    namespace
+    {
+        constexpr uint32 SPLINE_VALIDATE_LOG_WINDOW_MS = 60000;
+
+        void LogSplineValidateFailure(Unit const* unit, char const* expr)
+        {
+            struct WarnState { uint32 lastLogMs = 0; uint32 suppressed = 0; };
+            static std::mutex s_splineWarnMutex;
+            static std::unordered_map<ObjectGuid, WarnState> s_splineWarn;
+
+            ObjectGuid const key = unit ? unit->GetGUID() : ObjectGuid::Empty;
+
+            std::lock_guard<std::mutex> guard(s_splineWarnMutex);
+            WarnState& st = s_splineWarn[key];
+            uint32 const now = getMSTime();
+
+            if (st.lastLogMs != 0 && getMSTimeDiff(st.lastLogMs, now) < SPLINE_VALIDATE_LOG_WINDOW_MS)
+            {
+                ++st.suppressed;
+                return;
+            }
+
+            if (unit)
+                LOG_ERROR("misc.movesplineinitargs", "MoveSplineInitArgs::Validate: expression '{}' failed for {} (suppressed {} since last)",
+                    expr, unit->GetGUID().ToString(), st.suppressed);
+            else
+                LOG_ERROR("misc.movesplineinitargs", "MoveSplineInitArgs::Validate: expression '{}' failed for cyclic spline continuation (suppressed {} since last)",
+                    expr, st.suppressed);
+
+            st.lastLogMs = now;
+            st.suppressed = 0;
+        }
+    }
+
     bool MoveSplineInitArgs::Validate(Unit* unit) const
     {
 #define CHECK(exp) \
         if (!(exp)) \
         { \
-            if (unit) \
-                LOG_ERROR("misc.movesplineinitargs", "MoveSplineInitArgs::Validate: expression '{}' failed for {}", #exp, unit->GetGUID().ToString()); \
-            else \
-                LOG_ERROR("misc.movesplineinitargs", "MoveSplineInitArgs::Validate: expression '{}' failed for cyclic spline continuation", #exp); \
+            LogSplineValidateFailure(unit, #exp); \
             return false;\
         }
         CHECK(path.size() > 1);
