@@ -206,19 +206,24 @@ namespace Movement
     {
         constexpr uint32 SPLINE_VALIDATE_LOG_WINDOW_MS = 60000;
 
+        // One throttle bucket per failing GUID. The map grows by one small entry per distinct
+        // failing GUID for the process lifetime (no eviction) — fine here: stuck spawns are few.
+        // `logged` is an explicit "seen before" flag so a getMSTime() of 0 (first ms of uptime)
+        // can't be mistaken for "never logged". The null-unit (cyclic) case shares one bucket.
+        struct SplineWarnState { uint32 lastLogMs = 0; uint32 suppressed = 0; bool logged = false; };
+
         void LogSplineValidateFailure(Unit const* unit, char const* expr)
         {
-            struct WarnState { uint32 lastLogMs = 0; uint32 suppressed = 0; };
             static std::mutex s_splineWarnMutex;
-            static std::unordered_map<ObjectGuid, WarnState> s_splineWarn;
+            static std::unordered_map<ObjectGuid, SplineWarnState> s_splineWarn;
 
             ObjectGuid const key = unit ? unit->GetGUID() : ObjectGuid::Empty;
 
             std::lock_guard<std::mutex> guard(s_splineWarnMutex);
-            WarnState& st = s_splineWarn[key];
+            SplineWarnState& st = s_splineWarn[key];
             uint32 const now = getMSTime();
 
-            if (st.lastLogMs != 0 && getMSTimeDiff(st.lastLogMs, now) < SPLINE_VALIDATE_LOG_WINDOW_MS)
+            if (st.logged && getMSTimeDiff(st.lastLogMs, now) < SPLINE_VALIDATE_LOG_WINDOW_MS)
             {
                 ++st.suppressed;
                 return;
@@ -233,6 +238,7 @@ namespace Movement
 
             st.lastLogMs = now;
             st.suppressed = 0;
+            st.logged = true;
         }
     }
 
