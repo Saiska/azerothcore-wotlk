@@ -1387,6 +1387,9 @@ void World::Update(uint32 diff)
         METRIC_VALUE("update_time_diff", diff);
     }
 
+    // Slow-tick attribution: when a single tick's elapsed exceeds SlowTickBreakdownMs,
+    // emit one breakdown line. "other" is the residual (tickTotal minus the four named
+    // phases) and absorbs all un-instrumented work this tick (auctions, LFG, BG, metrics, ...).
     if (uint32 const slowTickMs = sWorldUpdateTime.GetSlowTickBreakdownMs())
     {
         uint32 const tickTotal = getMSTimeDiff(tickStart, getMSTime());
