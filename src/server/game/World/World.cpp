@@ -1149,6 +1149,9 @@ void World::Update(uint32 diff)
 {
     METRIC_TIMER("world_update_time_total");
 
+    uint32 const tickStart = getMSTime();
+    uint32 phPlayerbots = 0, phSessions = 0, phMaps = 0, phScripts = 0;
+
     ///- Update the game time and check for shutdown time
     _UpdateGameTime();
     Seconds currentGameTime = GameTime::GetGameTime();
@@ -1227,7 +1230,9 @@ void World::Update(uint32 diff)
         ResetGuildCap();
     }
 
+    phPlayerbots = getMSTime();
     sScriptMgr->OnPlayerbotUpdate(diff);
+    phPlayerbots = getMSTimeDiff(phPlayerbots, getMSTime());
 
     {
         // pussywizard: handle expired auctions, auctions expired when realm was offline are also handled here (not during loading when many required things aren't loaded yet)
@@ -1241,10 +1246,12 @@ void World::Update(uint32 diff)
         _mail_expire_check_timer = currentGameTime + 6h;
     }
 
+    phSessions = getMSTime();
     {
         METRIC_TIMER("world_update_time", METRIC_TAG("type", "Update sessions"));
         sWorldSessionMgr->UpdateSessions(diff);
     }
+    phSessions = getMSTimeDiff(phSessions, getMSTime());
 
     /// <li> Clean logs table
     if (getIntConfig(CONFIG_LOGDB_CLEARTIME) > 0) // if not enabled, ignore the timer
@@ -1267,11 +1274,13 @@ void World::Update(uint32 diff)
         sLFGMgr->Update(diff, 0); // pussywizard: remove obsolete stuff before finding compatibility during map update
     }
 
+    phMaps = getMSTime();
     {
         ///- Update objects when the timer has passed (maps, transport, creatures, ...)
         METRIC_TIMER("world_update_time", METRIC_TAG("type", "Update maps"));
         sMapMgr->Update(diff);
     }
+    phMaps = getMSTimeDiff(phMaps, getMSTime());
 
     if (getBoolConfig(CONFIG_AUTOBROADCAST))
     {
@@ -1364,16 +1373,30 @@ void World::Update(uint32 diff)
         ProcessCliCommands();
     }
 
+    phScripts = getMSTime();
     {
         METRIC_TIMER("world_update_time", METRIC_TAG("type", "Update world scripts"));
         sScriptMgr->OnWorldUpdate(diff);
     }
+    phScripts = getMSTimeDiff(phScripts, getMSTime());
 
     {
         METRIC_TIMER("world_update_time", METRIC_TAG("type", "Update metrics"));
         // Stats logger update
         sMetric->Update();
         METRIC_VALUE("update_time_diff", diff);
+    }
+
+    if (uint32 const slowTickMs = sWorldUpdateTime.GetSlowTickBreakdownMs())
+    {
+        uint32 const tickTotal = getMSTimeDiff(tickStart, getMSTime());
+        if (tickTotal > slowTickMs)
+        {
+            uint32 const measured = phPlayerbots + phSessions + phMaps + phScripts;
+            uint32 const phOther = tickTotal > measured ? tickTotal - measured : 0;
+            LOG_INFO("time.update", "Slow tick {}ms: playerbots={} sessions={} maps={} scripts={} other={}",
+                tickTotal, phPlayerbots, phSessions, phMaps, phScripts, phOther);
+        }
     }
 }
 
