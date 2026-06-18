@@ -676,6 +676,10 @@ private:
             MoveItemData(guild, player, container, slotId) {
         }
 
+        // When true, this bank-sourced move is gated on VIEW_TAB only and does not consume the
+        // per-tab daily withdraw-slot quota (used for autonomous playerbot withdrawals).
+        void SetIgnoreSlotQuota(bool v) { m_ignoreSlotQuota = v; }
+
         bool IsBank() const override { return true; }
         bool InitItem() override;
         bool HasStoreRights(MoveItemData* pOther) const override;
@@ -692,6 +696,7 @@ private:
         Item* _StoreItem(CharacterDatabaseTransaction trans, BankTab* pTab, Item* pItem, ItemPosCount& pos, bool clone) const;
         bool _ReserveSpace(uint8 slotId, Item* pItem, Item* pItemDest, uint32& count);
         void CanStoreItemInTab(Item* pItem, uint8 skipSlotId, bool merge, uint32& count);
+        bool m_ignoreSlotQuota = false;
     };
 
 public:
@@ -788,7 +793,7 @@ public:
 
     // Bank
     void SwapItems(Player* player, uint8 tabId, uint8 slotId, uint8 destTabId, uint8 destSlotId, uint32 splitedAmount);
-    void SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uint8 slotId, uint8 playerBag, uint8 playerSlotId, uint32 splitedAmount);
+    void SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uint8 slotId, uint8 playerBag, uint8 playerSlotId, uint32 splitedAmount, bool botIgnoreSlotQuota = false);
 
     // Appends every equippable (weapon/armor, real equip slot) bank item whose quality >= minQuality
     // across all purchased tabs. Pure read; applies NO rights filtering (caller gates per-member).

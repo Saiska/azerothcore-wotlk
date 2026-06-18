@@ -842,6 +842,10 @@ bool Guild::BankMoveItemData::HasWithdrawRights(MoveItemData* pOther) const
     if (pOther->IsBank() && pOther->GetContainer() == m_container)
         return true;
 
+    // Playerbot withdrawal: gate on tab VIEW rights only, ignore the daily slot quota.
+    if (m_ignoreSlotQuota)
+        return m_pGuild->MemberHasTabRights(m_pPlayer->GetGUID(), m_container, GUILD_BANK_RIGHT_VIEW_TAB);
+
     int32 slots = 0;
     if (Member const* member = m_pGuild->GetMember(m_pPlayer->GetGUID()))
         slots = m_pGuild->_GetMemberRemainingSlots(*member, m_container);
@@ -864,7 +868,7 @@ void Guild::BankMoveItemData::RemoveItem(CharacterDatabaseTransaction trans, Mov
         m_pItem = nullptr;
     }
     // Decrease amount of player's remaining items (if item is moved to different tab or to player)
-    if (!pOther->IsBank() || pOther->GetContainer() != m_container)
+    if (!m_ignoreSlotQuota && (!pOther->IsBank() || pOther->GetContainer() != m_container))
         m_pGuild->_UpdateMemberWithdrawSlots(trans, m_pPlayer->GetGUID(), m_container);
 }
 
@@ -2420,7 +2424,7 @@ void Guild::SwapItems(Player* player, uint8 tabId, uint8 slotId, uint8 destTabId
     _MoveItems(&from, &to, splitedAmount);
 }
 
-void Guild::SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uint8 slotId, uint8 playerBag, uint8 playerSlotId, uint32 splitedAmount)
+void Guild::SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uint8 slotId, uint8 playerBag, uint8 playerSlotId, uint32 splitedAmount, bool botIgnoreSlotQuota /*= false*/)
 {
     if ((slotId >= GUILD_BANK_MAX_SLOTS && slotId != NULL_SLOT) || tabId >= _GetPurchasedTabsSize())
         return;
@@ -2428,7 +2432,10 @@ void Guild::SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uin
     BankMoveItemData bankData(this, player, tabId, slotId);
     PlayerMoveItemData charData(this, player, playerBag, playerSlotId);
     if (toChar)
+    {
+        bankData.SetIgnoreSlotQuota(botIgnoreSlotQuota);
         _MoveItems(&bankData, &charData, splitedAmount);
+    }
     else
         _MoveItems(&charData, &bankData, splitedAmount);
 }
