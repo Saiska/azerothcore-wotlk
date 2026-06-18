@@ -843,6 +843,7 @@ bool Guild::BankMoveItemData::HasWithdrawRights(MoveItemData* pOther) const
         return true;
 
     // Playerbot withdrawal: gate on tab VIEW rights only, ignore the daily slot quota.
+    // MemberHasTabRights returns false for a non-member, so this is safe even if the bot left the guild.
     if (m_ignoreSlotQuota)
         return m_pGuild->MemberHasTabRights(m_pPlayer->GetGUID(), m_container, GUILD_BANK_RIGHT_VIEW_TAB);
 
