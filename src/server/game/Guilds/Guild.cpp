@@ -842,6 +842,11 @@ bool Guild::BankMoveItemData::HasWithdrawRights(MoveItemData* pOther) const
     if (pOther->IsBank() && pOther->GetContainer() == m_container)
         return true;
 
+    // Playerbot withdrawal: gate on tab VIEW rights only, ignore the daily slot quota.
+    // MemberHasTabRights returns false for a non-member, so this is safe even if the bot left the guild.
+    if (m_ignoreSlotQuota)
+        return m_pGuild->MemberHasTabRights(m_pPlayer->GetGUID(), m_container, GUILD_BANK_RIGHT_VIEW_TAB);
+
     int32 slots = 0;
     if (Member const* member = m_pGuild->GetMember(m_pPlayer->GetGUID()))
         slots = m_pGuild->_GetMemberRemainingSlots(*member, m_container);
@@ -864,7 +869,7 @@ void Guild::BankMoveItemData::RemoveItem(CharacterDatabaseTransaction trans, Mov
         m_pItem = nullptr;
     }
     // Decrease amount of player's remaining items (if item is moved to different tab or to player)
-    if (!pOther->IsBank() || pOther->GetContainer() != m_container)
+    if (!m_ignoreSlotQuota && (!pOther->IsBank() || pOther->GetContainer() != m_container))
         m_pGuild->_UpdateMemberWithdrawSlots(trans, m_pPlayer->GetGUID(), m_container);
 }
 
@@ -2420,7 +2425,7 @@ void Guild::SwapItems(Player* player, uint8 tabId, uint8 slotId, uint8 destTabId
     _MoveItems(&from, &to, splitedAmount);
 }
 
-void Guild::SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uint8 slotId, uint8 playerBag, uint8 playerSlotId, uint32 splitedAmount)
+void Guild::SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uint8 slotId, uint8 playerBag, uint8 playerSlotId, uint32 splitedAmount, bool botIgnoreSlotQuota /*= false*/)
 {
     if ((slotId >= GUILD_BANK_MAX_SLOTS && slotId != NULL_SLOT) || tabId >= _GetPurchasedTabsSize())
         return;
@@ -2428,9 +2433,44 @@ void Guild::SwapItemsWithInventory(Player* player, bool toChar, uint8 tabId, uin
     BankMoveItemData bankData(this, player, tabId, slotId);
     PlayerMoveItemData charData(this, player, playerBag, playerSlotId);
     if (toChar)
+    {
+        bankData.SetIgnoreSlotQuota(botIgnoreSlotQuota);
         _MoveItems(&bankData, &charData, splitedAmount);
+    }
     else
         _MoveItems(&charData, &bankData, splitedAmount);
+}
+
+void Guild::GetEquippableBankItems(uint32 minQuality, std::vector<GuildBankEquipItem>& out) const
+{
+    for (uint8 tabId = 0; tabId < _GetPurchasedTabsSize(); ++tabId)
+    {
+        BankTab const* tab = GetBankTab(tabId);
+        if (!tab)
+            continue;
+
+        for (uint8 slotId = 0; slotId < GUILD_BANK_MAX_SLOTS; ++slotId)
+        {
+            Item* item = tab->GetItem(slotId);
+            if (!item)
+                continue;
+
+            ItemTemplate const* proto = item->GetTemplate();
+            if (!proto)
+                continue;
+
+            // Equippable gear only: weapon or armor with a real equip slot.
+            if (proto->Class != ITEM_CLASS_WEAPON && proto->Class != ITEM_CLASS_ARMOR)
+                continue;
+            if (proto->InventoryType == INVTYPE_NON_EQUIP)
+                continue;
+            if (proto->Quality < minQuality)
+                continue;
+
+            out.push_back(GuildBankEquipItem{
+                tabId, slotId, item->GetEntry(), item->GetCount(), item->GetItemRandomPropertyId() });
+        }
+    }
 }
 
 // Bank tabs
