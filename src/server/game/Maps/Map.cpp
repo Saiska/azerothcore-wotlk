@@ -39,6 +39,7 @@
 #include "PoolMgr.h"
 #include "ScriptMgr.h"
 #include "Transport.h"
+#include "UpdateTime.h"
 #include "VMapFactory.h"
 #include "Vehicle.h"
 #include "VMapMgr2.h"
@@ -184,11 +185,29 @@ void Map::EnsureGridCreated(GridCoord const& gridCoord)
 
 bool Map::EnsureGridLoaded(Cell const& cell)
 {
+    // Observability: time the cold-grid load only when the diagnostic
+    // threshold is set. The window is split: load = terrain+VMAP+MMAP from disk
+    // (EnsureGridCreated) + creatures/GOs from DB (LoadGrid); balance = the
+    // dynamic collision-tree rebuild (Balance(), a full BIH rebuild over every
+    // GO model on the map when any model changed since the last balance).
+    // When MapGridLoadLogMs == 0 this is byte-identical to the original (one
+    // cached getter read, no getMSTime()).
+    uint32 const gridLoadLogMs = sWorldUpdateTime.GetMapGridLoadLogMs();
+    uint32 const start = gridLoadLogMs ? getMSTime() : 0;
+
     EnsureGridCreated(GridCoord(cell.GridX(), cell.GridY()));
 
     if (_mapGridManager.LoadGrid(cell.GridX(), cell.GridY()))
     {
+        uint32 const loadMs = gridLoadLogMs ? GetMSTimeDiffToNow(start) : 0;
         Balance();
+        if (gridLoadLogMs)
+        {
+            uint32 const totalMs = GetMSTimeDiffToNow(start);
+            if (totalMs >= gridLoadLogMs)
+                LOG_INFO("time.update", "Slow grid load: map={} grid=[{},{}] load={}ms balance={}ms total={}ms",
+                         GetId(), cell.GridX(), cell.GridY(), loadMs, totalMs - loadMs, totalMs);
+        }
         return true;
     }
 
