@@ -472,6 +472,9 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
         }
     };
 
+    if (mapUpdLogMs)
+        MapPlayerPhaseReset(); // clear this thread's per-bot phase accum for this map's pass
+
     if (t_diff)
         _mapCollisionData.GetDynamicTree().update(t_diff);
 
@@ -511,9 +514,13 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
             if (totalMs >= mapUpdLogMs)
                 LOG_INFO("time.update",
                     "Slow map update perplayer: map={} inst={} players={} total={}ms "
-                    "[session={} player={} other={}]",
+                    "[session={} player={} other={}] "
+                    "[unit={}ms house={}ms botAI={}ms maxBot={}us/{}]",
                     GetId(), GetInstanceId(), uint32(GetPlayers().getSize()), totalMs,
-                    msSession, msPlrEarly, msEarlyOther);
+                    msSession, msPlrEarly, msEarlyOther,
+                    g_mapPlayerPhase.unitUs / 1000, g_mapPlayerPhase.houseUs / 1000,
+                    g_mapPlayerPhase.botAiUs / 1000, g_mapPlayerPhase.maxBotUs,
+                    g_mapPlayerPhase.maxBotWhich);
         }
 
         return;
