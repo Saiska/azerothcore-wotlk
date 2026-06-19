@@ -457,6 +457,10 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
     uint32 const mapUpdLogMs = sWorldUpdateTime.GetMapUpdateLogMs();
     uint32 phaseTs = mapUpdLogMs ? getMSTime() : 0;
     uint32 msDynTree = 0, msPlrUpd = 0, msNonPlayer = 0, msSend = 0, msScripts = 0, msMove = 0, msOther = 0;
+    // Early-return (t_diff==0) per-player split: the prior instrument's 7 buckets do not
+    // cover the t_diff==0 path (Map::Update early-returns before its breakdown emit). These
+    // attribute that path's per-player pass; only ever written inside the if(!t_diff) block.
+    uint32 msSession = 0, msPlrEarly = 0, msEarlyOther = 0;
     bool recheckFired = false;
     auto lapPhase = [&](uint32& acc)
     {
@@ -486,7 +490,11 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
 
             // update players at tick
             if (!t_diff)
+            {
+                lapPhase(msSession);   // attribute the session->Update just done (early path only)
                 player->Update(s_diff);
+                lapPhase(msPlrEarly);  // attribute this bot's Player::Update (early path only)
+            }
         }
     }
 
@@ -495,6 +503,19 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
     if (!t_diff)
     {
         HandleDelayedVisibility();
+
+        if (mapUpdLogMs)
+        {
+            lapPhase(msEarlyOther); // events + delayedVis + loop exit since the last per-player lap
+            uint32 const totalMs = msSession + msPlrEarly + msEarlyOther;
+            if (totalMs >= mapUpdLogMs)
+                LOG_INFO("time.update",
+                    "Slow map update perplayer: map={} inst={} players={} total={}ms "
+                    "[session={} player={} other={}]",
+                    GetId(), GetInstanceId(), uint32(GetPlayers().getSize()), totalMs,
+                    msSession, msPlrEarly, msEarlyOther);
+        }
+
         return;
     }
 
