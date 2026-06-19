@@ -448,8 +448,30 @@ void Map::UpdatePlayerZoneStats(uint32 oldZone, uint32 newZone)
 
 void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
 {
+    // Observability: time each Map::Update sub-phase only when the diagnostic
+    // threshold is set, emitting a per-phase breakdown when the total exceeds it
+    // (correlates with the "Slow map update" per-map line by map/inst/ms). When
+    // MapUpdateLogMs == 0 this adds one cached getter read + predictable-false
+    // branches, no getMSTime() and no log lines (byte-identical, mirrors the
+    // MapGridLoadLogMs instrument in EnsureGridLoaded above).
+    uint32 const mapUpdLogMs = sWorldUpdateTime.GetMapUpdateLogMs();
+    uint32 phaseTs = mapUpdLogMs ? getMSTime() : 0;
+    uint32 msDynTree = 0, msPlrUpd = 0, msNonPlayer = 0, msSend = 0, msScripts = 0, msMove = 0, msOther = 0;
+    bool recheckFired = false;
+    auto lapPhase = [&](uint32& acc)
+    {
+        if (mapUpdLogMs)
+        {
+            uint32 const now = getMSTime();
+            acc += now - phaseTs;
+            phaseTs = now;
+        }
+    };
+
     if (t_diff)
         _mapCollisionData.GetDynamicTree().update(t_diff);
+
+    lapPhase(msDynTree);
 
     // Update world sessions and players
     for (m_mapRefIter = m_mapRefMgr.begin(); m_mapRefIter != m_mapRefMgr.end(); ++m_mapRefIter)
@@ -489,7 +511,13 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
     }
 
     _updatableObjectListRecheckTimer.Update(t_diff);
+
+    if (mapUpdLogMs)
+        recheckFired = _updatableObjectListRecheckTimer.Passed();
+
     resetMarkedCells();
+
+    lapPhase(msOther); // sessions + events + respawns + recheck-update since dynTree
 
     // Update players
     for (m_mapRefIter = m_mapRefMgr.begin(); m_mapRefIter != m_mapRefMgr.end(); ++m_mapRefIter)
@@ -516,9 +544,15 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
         }
     }
 
+    lapPhase(msPlrUpd);
+
     UpdateNonPlayerObjects(t_diff);
 
+    lapPhase(msNonPlayer);
+
     SendObjectUpdates();
+
+    lapPhase(msSend);
 
     ///- Process necessary scripts
     if (!m_scriptSchedule.empty())
@@ -528,9 +562,13 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
         i_scriptLock = false;
     }
 
+    lapPhase(msScripts);
+
     MoveAllCreaturesInMoveList();
     MoveAllGameObjectsInMoveList();
     MoveAllDynamicObjectsInMoveList();
+
+    lapPhase(msMove);
 
     HandleDelayedVisibility();
 
@@ -546,6 +584,19 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
     METRIC_VALUE("map_gameobjects", uint64(GetObjectsStore().Size<GameObject>()),
         METRIC_TAG("map_id", std::to_string(GetId())),
         METRIC_TAG("map_instanceid", std::to_string(GetInstanceId())));
+
+    if (mapUpdLogMs)
+    {
+        lapPhase(msOther); // delayedVis + weather + corpses + scriptMgr + metric tail
+        uint32 const totalMs = msDynTree + msPlrUpd + msNonPlayer + msSend + msScripts + msMove + msOther;
+        if (totalMs >= mapUpdLogMs)
+            LOG_INFO("time.update",
+                "Slow map update breakdown: map={} inst={} players={} total={}ms "
+                "[dynTree={} plrUpd={} nonPlayer={} send={} scripts={} move={} other={}] recheck={}",
+                GetId(), GetInstanceId(), uint32(GetPlayers().getSize()), totalMs,
+                msDynTree, msPlrUpd, msNonPlayer, msSend, msScripts, msMove, msOther,
+                recheckFired ? 'Y' : 'N');
+    }
 }
 
 void Map::UpdateNonPlayerObjects(uint32 const diff)
