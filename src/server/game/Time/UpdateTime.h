@@ -84,4 +84,41 @@ private:
 
 AC_GAME_API extern WorldUpdateTime sWorldUpdateTime;
 
+// player-update-phase-instrument (6th tick-spike instrument): per-thread split of
+// each bot's Player::Update into unit/housekeeping/botAI, summed over one Map::Update
+// player pass. Written by Player::Update, reset + read by Map::Update on the SAME
+// thread (each MapUpdater worker runs one Map::Update to completion before the next),
+// gated by the existing MapUpdateLogMs knob. Microseconds (per-bot work is sub-ms to
+// a few ms; ms truncation would lose the signal). Zero cost when the knob is 0.
+struct MapPlayerPhaseAccum
+{
+    uint32 unitUs;
+    uint32 houseUs;
+    uint32 botAiUs;
+    uint32 maxBotUs;
+    char   maxBotWhich; // 'U' unit / 'H' housekeeping / 'A' botAI / '-' none
+};
+
+inline thread_local MapPlayerPhaseAccum g_mapPlayerPhase{ 0, 0, 0, 0, '-' };
+
+inline void MapPlayerPhaseReset()
+{
+    g_mapPlayerPhase = MapPlayerPhaseAccum{ 0, 0, 0, 0, '-' };
+}
+
+inline void MapPlayerPhaseNoteBot(uint32 unitUs, uint32 houseUs, uint32 botAiUs)
+{
+    g_mapPlayerPhase.unitUs  += unitUs;
+    g_mapPlayerPhase.houseUs += houseUs;
+    g_mapPlayerPhase.botAiUs += botAiUs;
+    uint32 const total = unitUs + houseUs + botAiUs;
+    if (total > g_mapPlayerPhase.maxBotUs)
+    {
+        g_mapPlayerPhase.maxBotUs = total;
+        g_mapPlayerPhase.maxBotWhich =
+            (botAiUs >= unitUs && botAiUs >= houseUs) ? 'A'
+            : (unitUs >= houseUs ? 'U' : 'H');
+    }
+}
+
 #endif

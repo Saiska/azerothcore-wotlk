@@ -35,6 +35,8 @@
 #include "SpellAuraEffects.h"
 #include "SpellMgr.h"
 #include "UpdateFieldFlags.h"
+#include "UpdateTime.h"
+#include <chrono>
 #include "Vehicle.h"
 #include "Weather.h"
 #include "WeatherMgr.h"
@@ -55,6 +57,26 @@ void Player::Update(uint32 p_time)
     if (!IsInWorld())
         return;
 
+    // player-update-phase-instrument: split this Player::Update into unit / housekeeping /
+    // botAI and feed the per-map accumulator (read by Map::Update's perplayer emit). Gated by
+    // the existing MapUpdateLogMs knob; microsecond laps (per-bot work is sub-ms). Byte-identical
+    // when the knob is 0 (one cached getter + predictable-false branches, no clock read).
+    uint32 const ppLogMs = sWorldUpdateTime.GetMapUpdateLogMs();
+    std::chrono::steady_clock::time_point ppTs;
+    if (ppLogMs)
+        ppTs = std::chrono::steady_clock::now();
+    uint32 ppUnit = 0, ppHouse = 0, ppBotAi = 0;
+    auto ppLap = [&](uint32& acc)
+    {
+        if (ppLogMs)
+        {
+            auto const now = std::chrono::steady_clock::now();
+            acc += static_cast<uint32>(
+                std::chrono::duration_cast<std::chrono::microseconds>(now - ppTs).count());
+            ppTs = now;
+        }
+    };
+
     sScriptMgr->OnPlayerBeforeUpdate(this, p_time);
 
     // undelivered mail
@@ -71,11 +93,15 @@ void Player::Update(uint32 p_time)
     // Update cinematic camera (if needed)
     _cinematicMgr.UpdateCinematic(p_time);
 
+    ppLap(ppHouse); // OnPlayerBeforeUpdate + mail + cinematic since fn entry
+
     // used to implement delayed far teleports
     SetMustDelayTeleport(true);
     ProcessSpellQueue();
     Unit::Update(p_time);
     SetMustDelayTeleport(false);
+
+    ppLap(ppUnit); // ProcessSpellQueue + Unit::Update (auras/spells/movement/combat)
 
     time_t now = GameTime::GetGameTime().count();
 
@@ -422,7 +448,16 @@ void Player::Update(uint32 p_time)
         m_delayed_unit_relocation_timer = 0;
         RemoveFromNotify(NOTIFY_VISIBILITY_CHANGED);
     }
+
+    ppLap(ppHouse); // flags/duel/afk/items/quests/achiev/melee/rest/zone/regen/save/visibility since Unit::Update
+
     sScriptMgr->OnPlayerAfterUpdate(this, p_time);
+
+    if (ppLogMs)
+    {
+        ppLap(ppBotAi); // OnPlayerAfterUpdate = the bot AI tick (botAI->UpdateAI)
+        MapPlayerPhaseNoteBot(ppUnit, ppHouse, ppBotAi);
+    }
 }
 
 void Player::UpdateMirrorTimers()
