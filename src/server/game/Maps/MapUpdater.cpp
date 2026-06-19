@@ -22,6 +22,8 @@
 #include "Map.h"
 #include "MapMgr.h"
 #include "Metric.h"
+#include "Timer.h"
+#include "UpdateTime.h"
 
 class UpdateRequest
 {
@@ -43,7 +45,23 @@ public:
     void call() override
     {
         METRIC_TIMER("map_update_time_diff", METRIC_TAG("map_id", std::to_string(m_map.GetId())));
+
+        // Observability: time this map's Update only when the diagnostic threshold is set.
+        // Byte-identical when MapUpdateLogMs == 0 (one cached getter read, no getMSTime()).
+        uint32 const mapUpdLogMs = sWorldUpdateTime.GetMapUpdateLogMs();
+        uint32 const start = mapUpdLogMs ? getMSTime() : 0;
+
         m_map.Update(m_diff, s_diff);
+
+        if (mapUpdLogMs)
+        {
+            uint32 const elapsed = GetMSTimeDiffToNow(start);
+            if (elapsed >= mapUpdLogMs)
+                LOG_INFO("time.update", "Slow map update: map={} inst={} players={} {}ms",
+                         m_map.GetId(), m_map.GetInstanceId(),
+                         uint32(m_map.GetPlayers().getSize()), elapsed);
+        }
+
         m_updater.update_finished();
     }
 
