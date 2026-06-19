@@ -34,6 +34,8 @@
 #include "Transport.h"
 #include "World.h"
 #include "WorldPacket.h"
+#include "Timer.h"
+#include "UpdateTime.h"
 
 MapMgr::MapMgr()
 {
@@ -272,7 +274,21 @@ void MapMgr::Update(uint32 diff)
         if (m_updater.activated())
             m_updater.schedule_update(*iter->second, uint32(full ? i_timer[mapUpdateStep].GetCurrent() : 0), diff);
         else
+        {
+            // Same diagnostic as the worker path (MapUpdater.cpp); only reached when
+            // MapUpdate.Threads == 0. Byte-identical when MapUpdateLogMs == 0.
+            uint32 const mapUpdLogMs = sWorldUpdateTime.GetMapUpdateLogMs();
+            uint32 const start = mapUpdLogMs ? getMSTime() : 0;
             iter->second->Update(uint32(full ? i_timer[mapUpdateStep].GetCurrent() : 0), diff);
+            if (mapUpdLogMs)
+            {
+                uint32 const elapsed = GetMSTimeDiffToNow(start);
+                if (elapsed >= mapUpdLogMs)
+                    LOG_INFO("time.update", "Slow map update: map={} inst={} players={} {}ms",
+                             iter->second->GetId(), iter->second->GetInstanceId(),
+                             uint32(iter->second->GetPlayers().getSize()), elapsed);
+            }
+        }
     }
 
     if (m_updater.activated())

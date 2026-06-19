@@ -612,6 +612,17 @@ SlowTickBreakdownMs = 250
 MapGridLoadLogMs = 0
 
 #
+#    MapUpdateLogMs
+#        Description: Diagnostic. When > 0, log any single Map::Update whose wall-clock
+#                     exceeds this many milliseconds to the time.update logger (Perf.log),
+#                     naming map id / instanceId / player count / elapsed ms. Pins which
+#                     map eats a slow "maps" phase (see SlowTickBreakdownMs). Set ~50-100
+#                     for a capture; normal maps update in <1ms.
+#        Default:     0 - off (byte-identical; no timing performed)
+
+MapUpdateLogMs = 0
+
+#
 #    IPLocationFile
 #        Description: The path to your IP2Location database CSV file.
 #        Example:     "C:/acore/IP2LOCATION-LITE-DB1.CSV"
