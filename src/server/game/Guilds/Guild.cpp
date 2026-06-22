@@ -2729,7 +2729,7 @@ bool Guild::FindDepositTabForEntry(uint32 entry, ObjectGuid member, uint8& outTa
             if (it->GetEntry() == entry)
             {
                 hasEntry = true;
-                if (it->GetCount() < it->GetTemplate()->GetMaxStackSize())
+                if (it->GetCount() < it->GetMaxStackCount())
                     hasRoom = true;
             }
         }
