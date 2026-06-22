@@ -2709,6 +2709,40 @@ bool Guild::MemberHasTabRights(ObjectGuid guid, uint8 tabId, uint32 rights) cons
     return false;
 }
 
+bool Guild::FindDepositTabForEntry(uint32 entry, ObjectGuid member, uint8& outTab) const
+{
+    for (uint8 tabId = 0; tabId < _GetPurchasedTabsSize(); ++tabId)
+    {
+        if (!MemberHasTabRights(member, tabId, GUILD_BANK_RIGHT_DEPOSIT_ITEM))
+            continue;
+
+        bool hasEntry = false;
+        bool hasRoom = false;
+        for (uint8 slot = 0; slot < GUILD_BANK_MAX_SLOTS; ++slot)
+        {
+            Item* it = _GetItem(tabId, slot);
+            if (!it)
+            {
+                hasRoom = true;
+                continue;
+            }
+            if (it->GetEntry() == entry)
+            {
+                hasEntry = true;
+                if (it->GetCount() < it->GetTemplate()->GetMaxStackSize())
+                    hasRoom = true;
+            }
+        }
+
+        if (hasEntry && hasRoom)
+        {
+            outTab = tabId;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool Guild::HasRankRight(Player* player, uint32 right) const
 {
     if (player)

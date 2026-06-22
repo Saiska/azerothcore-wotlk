@@ -813,6 +813,11 @@ public:
     [[nodiscard]] uint32 GetMemberSize() const { return m_members.size(); }
 
     bool MemberHasTabRights(ObjectGuid guid, uint8 tabId, uint32 rights) const;
+    // Playerbots: returns true and sets outTab to the first guild-bank tab that (a) holds an
+    // item whose entry == entry, (b) member has GUILD_BANK_RIGHT_DEPOSIT_ITEM on, and (c) has
+    // room (a free slot OR a same-entry stack below max). Pure read; used to decide whether a
+    // bot should deposit otherwise-discarded loot. Returns false if no such tab exists.
+    bool FindDepositTabForEntry(uint32 entry, ObjectGuid member, uint8& outTab) const;
     bool HasRankRight(Player* player, uint32 right) const;
     uint32 GetRankRights(uint8 rankId) const;
 
