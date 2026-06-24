@@ -299,14 +299,36 @@ std::string Acore::Time::TimeToHumanReadable(Seconds time /*= 0s*/, std::string_
     return ss.str();
 }
 
-time_t Acore::Time::GetNextTimeWithDayAndHour(int8 dayOfWeek, int8 hour)
+time_t Acore::Time::GetNextDailyReset(time_t base, uint32 resetsPerDay)
+{
+    if (resetsPerDay < 1)
+        resetsPerDay = 1;
+
+    // local midnight of the day containing `base`
+    tm midnightTm = TimeBreakdown(base);
+    midnightTm.tm_hour = 0;
+    midnightTm.tm_min  = 0;
+    midnightTm.tm_sec  = 0;
+    time_t midnight = mktime(&midnightTm);
+
+    time_t interval = static_cast<time_t>(DAY) / resetsPerDay; // seconds per slice
+    if (interval < 1)
+        interval = 1;
+
+    // first slice boundary STRICTLY after `base`
+    time_t elapsed = base - midnight;
+    time_t k = (elapsed / interval) + 1;
+    return midnight + k * interval;
+}
+
+time_t Acore::Time::GetNextTimeWithDayAndHour(int8 dayOfWeek, int8 hour, time_t base /*= 0*/)
 {
     if (hour < 0 || hour > 23)
     {
         hour = 0;
     }
 
-    tm localTm = TimeBreakdown();
+    tm localTm = TimeBreakdown(base);
     localTm.tm_hour = hour;
     localTm.tm_min = 0;
     localTm.tm_sec = 0;
@@ -330,14 +352,14 @@ time_t Acore::Time::GetNextTimeWithDayAndHour(int8 dayOfWeek, int8 hour)
     return mktime(&localTm) + add;
 }
 
-time_t Acore::Time::GetNextTimeWithMonthAndHour(int8 month, int8 hour)
+time_t Acore::Time::GetNextTimeWithMonthAndHour(int8 month, int8 hour, time_t base /*= 0*/)
 {
     if (hour < 0 || hour > 23)
     {
         hour = 0;
     }
 
-    tm localTm = TimeBreakdown();
+    tm localTm = TimeBreakdown(base);
     localTm.tm_mday = 1;
     localTm.tm_hour = hour;
     localTm.tm_min = 0;
