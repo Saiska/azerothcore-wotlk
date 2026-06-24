@@ -57,8 +57,10 @@ namespace Acore::Time
     AC_COMMON_API std::string TimeToTimestampStr(Seconds time = 0s, std::string_view fmt = {});
     AC_COMMON_API std::string TimeToHumanReadable(Seconds time = 0s, std::string_view fmt = {});
 
-    AC_COMMON_API time_t GetNextTimeWithDayAndHour(int8 dayOfWeek, int8 hour); // int8 dayOfWeek: 0 (sunday) to 6 (saturday)
-    AC_COMMON_API time_t GetNextTimeWithMonthAndHour(int8 month, int8 hour); // int8 month: 0 (january) to 11 (december)
+    // Next of `resetsPerDay` evenly-spaced daily boundaries (anchored to local midnight) strictly after `base`.
+    AC_COMMON_API time_t GetNextDailyReset(time_t base, uint32 resetsPerDay);
+    AC_COMMON_API time_t GetNextTimeWithDayAndHour(int8 dayOfWeek, int8 hour, time_t base = 0); // int8 dayOfWeek: 0 (sunday) to 6 (saturday)
+    AC_COMMON_API time_t GetNextTimeWithMonthAndHour(int8 month, int8 hour, time_t base = 0); // int8 month: 0 (january) to 11 (december)
 
     AC_COMMON_API uint32 GetSeconds(Seconds time = 0s);      // seconds after the minute - [0, 60]
     AC_COMMON_API uint32 GetMinutes(Seconds time = 0s);      // minutes after the hour - [0, 59]
