@@ -4579,6 +4579,18 @@ MaxRecruitAFriendBonusDistance = 100
 Calendar.DeleteOldEventsHour = 6
 
 #
+#    Quest.DailyResetsPerCalendarDay
+#        Number of daily-quest resets per IN-GAME (realm calendar) day, evenly spaced and
+#        anchored to calendar midnight. The realm calendar runs at RealmTime.Speed, so at
+#        speed 3.0 a value of 1 = a reset every 8 real hours; 2 = every 4 real hours.
+#        Weekly/monthly quest resets are fixed at once per in-game week/month. Does NOT affect
+#        raid/instance lockouts (those use Rate.InstanceResetTime).
+#        Default: 1   Range: 1..24
+#
+
+Quest.DailyResetsPerCalendarDay = 1
+
+#
 ###################################################################################################
 
 ###################################################################################################
