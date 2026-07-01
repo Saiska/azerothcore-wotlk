@@ -533,7 +533,7 @@ namespace
 {
     // Two loot entries merge into one stack ONLY if truly identical for stacking:
     // same item, same random property/suffix (0 for ordinary stackables), same quest/FFA
-    // status, and both unconditional (conditional items stay separate for per-player logic).
+    // status, and identical condition sets (both empty or both matching; differing conditions stay separate).
     static bool CanMergeStacks(LootItem const& a, LootItem const& b)
     {
         return a.itemid == b.itemid
@@ -541,8 +541,7 @@ namespace
             && a.randomSuffix == b.randomSuffix
             && a.needs_quest == b.needs_quest
             && a.freeforall == b.freeforall
-            && a.conditions.empty()
-            && b.conditions.empty();
+            && a.conditions == b.conditions;
     }
 
     // Index of the lowest-quality item in `vec` whose quality is STRICTLY below
