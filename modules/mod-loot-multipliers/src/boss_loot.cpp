@@ -183,6 +183,9 @@ public:
             total, uint32(MAX_NR_LOOT_ITEMS),
             (total >= MAX_NR_LOOT_ITEMS ? " <== CAP HIT" : ""),
             uint32(loot->quest_items.size()), greens, blues, epics);
+        for (LootItem const& li : loot->items)
+            LOG_INFO("server.loading", "[BossLoot dbg]   stack itemid={} count={}",
+                li.itemid, uint32(li.count));
     }
 };
 

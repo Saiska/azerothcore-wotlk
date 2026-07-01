@@ -395,6 +395,13 @@ private:
     QuestItemList* FillQuestLoot(Player* player);
     QuestItemList* FillNonQuestNonFFAConditionalLoot(Player* player);
 
+    // True if at least one eligible looter (solo owner, or any group member at the source)
+    // is allowed to see this item. Mirrors the visibility gate previously inline in AddItem.
+    bool ItemVisibleToAnyLooter(LootItem const& li) const;
+    // True if this slot contributes to unlootedCount (visible + plain: not quest, no
+    // conditions, not multi-drop). Used symmetrically on add and on rarity-eviction.
+    bool SlotCountsForUnlooted(LootItem const& li) const;
+
     typedef GuidSet PlayersLootingSet;
     PlayersLootingSet PlayersLooting;
     QuestItemMap PlayerQuestItems;

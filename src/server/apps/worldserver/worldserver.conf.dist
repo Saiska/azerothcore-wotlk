@@ -2886,6 +2886,27 @@ LootNeedBeforeGreedILvlRestriction = 70
 Item.SetItemTradeable = 1
 
 #
+#    Loot.ConsolidateStacks
+#        When enabled, multiple drops of the SAME item from one source are merged into the
+#        fewest stacks possible (up to the item's max stack size) instead of many small
+#        stacks. Total quantity is unchanged; only wasted loot slots are reclaimed. Helps
+#        keep a corpse under the MAX_NR_LOOT_ITEMS (18) cap.
+#        Default: 1 (on)
+#
+Loot.ConsolidateStacks = 1
+
+#
+#    Loot.RarityPriorityCap
+#        When a source generates more than MAX_NR_LOOT_ITEMS (18) distinct stacks, keep the
+#        HIGHEST-rarity items: an incoming item of strictly higher quality evicts the lowest-
+#        quality item already in the list instead of being dropped. Ensures gear (processed
+#        after trash) is never starved out of a corpse by inflated vendor-trash. Quest items
+#        are unaffected (separate list).
+#        Default: 1 (on)
+#
+Loot.RarityPriorityCap = 1
+
+#
 ###################################################################################################
 
 ###################################################################################################
