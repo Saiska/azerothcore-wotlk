@@ -2533,6 +2533,9 @@ void LoadLootTemplates_Reference()
 
     LOG_INFO("server.loading", "[Loot] Rate.Drop.Item.UncapChance = {} (>100% drop chance spills into extra loot)",
              sWorld->getBoolConfig(CONFIG_LOOT_UNCAP_CHANCE) ? 1 : 0);
+    LOG_INFO("server.loading", "[Loot] ConsolidateStacks = {} | RarityPriorityCap = {}",
+             sWorld->getBoolConfig(CONFIG_LOOT_CONSOLIDATE_STACKS) ? 1 : 0,
+             sWorld->getBoolConfig(CONFIG_LOOT_RARITY_PRIORITY_CAP) ? 1 : 0);
     LOG_INFO("server.loading", ">> Loaded reference loot templates in {} ms", GetMSTimeDiffToNow(oldMSTime));
     LOG_INFO("server.loading", " ");
 }
