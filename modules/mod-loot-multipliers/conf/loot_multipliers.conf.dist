@@ -26,3 +26,26 @@ LootMultipliers.Enable = 1
 #        gathering-yield x2 and adds combat-drop materials)
 #
 LootMultipliers.CategoryRates = "3=2.0 7=2.0"
+
+#
+#    LootMultipliers.BossEnable
+#        Master switch for the boss extra-loot feature (independent of the category
+#        multiplier above). When on, dungeon/raid bosses drop BossCountMin..BossCountMax
+#        DISTINCT items instead of 1 — corpse loot AND boss-drop chests. Only bosses are
+#        affected; trash, world mobs, gathering, and treasure chests are unchanged.
+#        Default: 1 (on)
+#
+LootMultipliers.BossEnable = 1
+
+#
+#    LootMultipliers.BossCountMin / LootMultipliers.BossCountMax
+#        A boss's loot groups (5-man) / references (raid) are rolled a random
+#        urand(BossCountMin, BossCountMax) times, so it yields that many distinct drops.
+#        The count is PER loot group/reference (a boss with two groups gets each rolled),
+#        and is an upper bound (a sub-100% group may yield fewer). Min is clamped to >=1;
+#        Max is clamped up to Min. Set Min=Max for a fixed count; set BossEnable=0 (or
+#        Min=Max=1) for vanilla single drops.
+#        Default: 2 / 3
+#
+LootMultipliers.BossCountMin = 2
+LootMultipliers.BossCountMax = 3
