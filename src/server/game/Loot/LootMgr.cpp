@@ -544,6 +544,26 @@ namespace
             && a.conditions.empty()
             && b.conditions.empty();
     }
+
+    // Index of the lowest-quality item in `vec` whose quality is STRICTLY below
+    // `incomingQuality`, or -1 if none qualifies. Ties keep the earliest (no thrash).
+    static int FindLowestEvictable(std::vector<LootItem> const& vec, uint32 incomingQuality)
+    {
+        int found = -1;
+        uint32 bestQuality = incomingQuality;   // must beat this to evict
+        for (uint32 i = 0; i < vec.size(); ++i)
+        {
+            ItemTemplate const* p = sObjectMgr->GetItemTemplate(vec[i].itemid);
+            if (!p)
+                continue;
+            if (p->Quality < bestQuality)
+            {
+                bestQuality = p->Quality;
+                found = int(i);
+            }
+        }
+        return found;
+    }
 }
 
 bool Loot::ItemVisibleToAnyLooter(LootItem const& li) const
@@ -615,13 +635,33 @@ void Loot::AddItem(LootStoreItem const& item)
         }
     }
 
-    // --- Part B: remaining quantity -> new stacks (cap-aware; rarity-priority added in Task 3) ---
-    while (count > 0 && lootItems.size() < limit)
+    bool const rarityCap = sWorld->getBoolConfig(CONFIG_LOOT_RARITY_PRIORITY_CAP);
+
+    // --- Part B: remaining quantity -> new stacks (cap-aware; rarity-priority on overflow) ---
+    while (count > 0)
     {
         uint32 const thisStack = std::min(count, stackCap);
+        uint32 slot;
 
-        uint32 const slot = uint32(lootItems.size());
-        lootItems.push_back(sample);
+        if (lootItems.size() < limit)
+        {
+            slot = uint32(lootItems.size());
+            lootItems.push_back(sample);
+        }
+        else if (rarityCap)
+        {
+            int const victim = FindLowestEvictable(lootItems, proto->Quality);
+            if (victim < 0)
+                break;                              // nothing lower-rarity -> drop remainder
+            if (SlotCountsForUnlooted(lootItems[victim]) && unlootedCount > 0)
+                --unlootedCount;                    // remove evicted slot's contribution
+            lootItems[uint32(victim)] = sample;     // in-place: reuse the slot index
+            slot = uint32(victim);
+        }
+        else
+        {
+            break;                                  // cap hit, no rarity priority -> vanilla drop
+        }
 
         LootItem& generatedLoot = lootItems[slot];
         generatedLoot.count = uint8(thisStack);
