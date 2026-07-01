@@ -6,6 +6,8 @@
 #include "GameObject.h"
 #include "Map.h"
 #include "ObjectAccessor.h"
+#include "ObjectMgr.h"
+#include "ItemTemplate.h"
 #include "Player.h"
 #include "SharedDefines.h"
 #include "Random.h"
@@ -140,8 +142,53 @@ public:
     }
 };
 
+// --- Diagnostic: post-fill boss-loot composition (BossDebug) --------------------
+// Fires AFTER the whole loot template is filled (Entries then Groups, subject to the
+// MAX_NR_LOOT_ITEMS cap in Loot::AddItem). Logs the final item count, whether the cap
+// was hit, and how many blues/epics survived -- to test whether multiplied junk
+// (processed first) starves a boss's gear group (processed last) out of the loot list.
+class boss_loot_misc : public MiscScript
+{
+public:
+    boss_loot_misc() : MiscScript("boss_loot_misc") { }
+
+    void OnAfterLootTemplateProcess(Loot* loot, LootTemplate const* /*tab*/, LootStore const& /*store*/,
+        Player* lootOwner, bool /*personal*/, bool /*noEmptyError*/, uint16 /*lootMode*/) override
+    {
+        if (!g_bossDebug || !loot || !lootOwner)
+            return;
+
+        if (!IsBossLoot(lootOwner, *loot))
+            return;
+
+        uint32 blues = 0;
+        uint32 epics = 0;
+        uint32 greens = 0;
+        for (LootItem const& li : loot->items)
+        {
+            if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(li.itemid))
+            {
+                if (proto->Quality == ITEM_QUALITY_RARE)
+                    ++blues;
+                else if (proto->Quality >= ITEM_QUALITY_EPIC)
+                    ++epics;
+                else if (proto->Quality == ITEM_QUALITY_UNCOMMON)
+                    ++greens;
+            }
+        }
+
+        uint32 const total = uint32(loot->items.size());
+        LOG_INFO("server.loading",
+            "[BossLoot dbg] POST-FILL items={}/{}{} quest={} greens={} blues={} epics={}",
+            total, uint32(MAX_NR_LOOT_ITEMS),
+            (total >= MAX_NR_LOOT_ITEMS ? " <== CAP HIT" : ""),
+            uint32(loot->quest_items.size()), greens, blues, epics);
+    }
+};
+
 void AddBossLootScripts()
 {
     new boss_loot_world();
     new boss_loot_global();
+    new boss_loot_misc();
 }
