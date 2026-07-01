@@ -15,6 +15,7 @@ namespace
     bool   g_bossEnable   = true;
     uint32 g_bossCountMin = 2;
     uint32 g_bossCountMax = 3;
+    bool   g_bossDebug    = false;   // LootMultipliers.BossDebug: verbose per-fill diagnostics
 
     // True only for loot owned by a dungeon/raid boss: a boss creature's corpse, or a
     // boss-drop chest (a chest that spawned at runtime inside an instance, GetSpawnId()==0).
@@ -37,12 +38,30 @@ namespace
         if (guid.IsCreatureOrVehicle())
         {
             if (Creature* creature = ObjectAccessor::GetCreature(*player, guid))
-                return creature->isWorldBoss() || creature->IsDungeonBoss();
+            {
+                bool const wb = creature->isWorldBoss();
+                bool const db = creature->IsDungeonBoss();
+                if (g_bossDebug)
+                    LOG_INFO("server.loading",
+                        "[BossLoot dbg] creature entry={} name={} worldBoss={} dungeonBoss={} => boss={}",
+                        creature->GetEntry(), creature->GetName(), wb, db, (wb || db));
+                return wb || db;
+            }
+            if (g_bossDebug)
+                LOG_INFO("server.loading", "[BossLoot dbg] creature guid={} NOT RESOLVED (no boost)",
+                    guid.ToString());
         }
         else if (guid.IsGameObject())
         {
             if (GameObject* go = ObjectAccessor::GetGameObject(*player, guid))
-                return go->GetGoType() == GAMEOBJECT_TYPE_CHEST && go->GetSpawnId() == 0;
+            {
+                bool const isChest = go->GetGoType() == GAMEOBJECT_TYPE_CHEST && go->GetSpawnId() == 0;
+                if (g_bossDebug)
+                    LOG_INFO("server.loading",
+                        "[BossLoot dbg] gob entry={} goType={} spawnId={} => bossChest={}",
+                        go->GetEntry(), uint32(go->GetGoType()), go->GetSpawnId(), isChest);
+                return isChest;
+            }
         }
 
         return false;
@@ -66,14 +85,15 @@ public:
         g_bossEnable   = sConfigMgr->GetOption<bool>("LootMultipliers.BossEnable", true);
         g_bossCountMin = sConfigMgr->GetOption<uint32>("LootMultipliers.BossCountMin", 2);
         g_bossCountMax = sConfigMgr->GetOption<uint32>("LootMultipliers.BossCountMax", 3);
+        g_bossDebug    = sConfigMgr->GetOption<bool>("LootMultipliers.BossDebug", false);
 
         if (g_bossCountMin < 1)
             g_bossCountMin = 1;
         if (g_bossCountMax < g_bossCountMin)
             g_bossCountMax = g_bossCountMin;
 
-        LOG_INFO("server.loading", "[BossLoot] enabled={} min={} max={}",
-            g_bossEnable, g_bossCountMin, g_bossCountMax);
+        LOG_INFO("server.loading", "[BossLoot] enabled={} min={} max={} debug={}",
+            g_bossEnable, g_bossCountMin, g_bossCountMax, g_bossDebug);
     }
 };
 
@@ -91,7 +111,13 @@ public:
             return;
 
         if (IsBossLoot(player, loot))
+        {
+            uint32 const before = groupAmount;
             groupAmount = BossRoll();
+            if (g_bossDebug)
+                LOG_INFO("server.loading", "[BossLoot dbg] GROUP hook: groupAmount {} -> {}",
+                    before, groupAmount);
+        }
     }
 
     // Raid / reference path: the referenced table is processed this many times. Override from
@@ -103,7 +129,14 @@ public:
             return;
 
         if (IsBossLoot(player, loot))
+        {
+            uint32 const before = maxcount;
             maxcount = static_cast<uint32>(item->maxcount) * BossRoll();
+            if (g_bossDebug)
+                LOG_INFO("server.loading",
+                    "[BossLoot dbg] REF hook: ref={} rawMax={} maxcount {} -> {}",
+                    item->reference, uint32(item->maxcount), before, maxcount);
+        }
     }
 };
 

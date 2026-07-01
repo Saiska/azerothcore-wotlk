@@ -49,3 +49,14 @@ LootMultipliers.BossEnable = 1
 #
 LootMultipliers.BossCountMin = 2
 LootMultipliers.BossCountMax = 3
+
+#
+#    LootMultipliers.BossDebug
+#        Diagnostic logging for the boss extra-loot feature. When on, every dungeon-loot
+#        fill logs (to Server.log, "server.loading") the source creature/gameobject, whether
+#        it was recognized as a boss (worldBoss/dungeonBoss), and the before->after count for
+#        each group/reference the hooks touch. Verbose (fires per loot group/reference) — leave
+#        off in production; enable only to diagnose "which boss / what count" questions.
+#        Default: 0 (off)
+#
+LootMultipliers.BossDebug = 0
