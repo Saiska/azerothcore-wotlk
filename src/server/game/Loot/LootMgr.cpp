@@ -529,6 +529,53 @@ void LootItem::AddAllowedLooter(Player const* player)
 // --------- Loot ---------
 //
 
+namespace
+{
+    // Two loot entries merge into one stack ONLY if truly identical for stacking:
+    // same item, same random property/suffix (0 for ordinary stackables), same quest/FFA
+    // status, and both unconditional (conditional items stay separate for per-player logic).
+    static bool CanMergeStacks(LootItem const& a, LootItem const& b)
+    {
+        return a.itemid == b.itemid
+            && a.randomPropertyId == b.randomPropertyId
+            && a.randomSuffix == b.randomSuffix
+            && a.needs_quest == b.needs_quest
+            && a.freeforall == b.freeforall
+            && a.conditions.empty()
+            && b.conditions.empty();
+    }
+}
+
+bool Loot::ItemVisibleToAnyLooter(LootItem const& li) const
+{
+    Player* owner = ObjectAccessor::FindPlayer(lootOwnerGUID);
+    if (!owner)
+        return false;
+
+    if (Group* group = owner->GetGroup())
+    {
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+            if (Player* member = itr->GetSource())
+                if (li.AllowedForPlayer(member, sourceWorldObjectGUID))
+                    return true;
+        return false;
+    }
+
+    return li.AllowedForPlayer(owner, sourceWorldObjectGUID);
+}
+
+bool Loot::SlotCountsForUnlooted(LootItem const& li) const
+{
+    if (li.needs_quest)
+        return false;
+    if (!li.conditions.empty())
+        return false;
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(li.itemid);
+    if (!proto || proto->HasFlag(ITEM_FLAG_MULTI_DROP))
+        return false;
+    return ItemVisibleToAnyLooter(li);
+}
+
 // Inserts the item into the loot (called by LootTemplate processors)
 void Loot::AddItem(LootStoreItem const& item)
 {
@@ -536,54 +583,52 @@ void Loot::AddItem(LootStoreItem const& item)
     if (!proto)
         return;
 
+    uint32 const maxStack = proto->GetMaxStackSize();
+    if (maxStack == 0)
+        return;
+
+    // LootItem::count is uint8 -> a single stack can never exceed 255.
+    uint32 const stackCap = std::min<uint32>(maxStack, 255);
+
     uint32 count = urand(item.mincount, item.maxcount);
-    uint32 stacks = count / proto->GetMaxStackSize() + (count % proto->GetMaxStackSize() ? 1 : 0);
 
     std::vector<LootItem>& lootItems = item.needs_quest ? quest_items : items;
-    uint32 limit = item.needs_quest ? MAX_NR_QUEST_ITEMS : MAX_NR_LOOT_ITEMS;
+    uint32 const limit = item.needs_quest ? MAX_NR_QUEST_ITEMS : MAX_NR_LOOT_ITEMS;
 
-    for (uint32 i = 0; i < stacks && lootItems.size() < limit; ++i)
+    bool const consolidate = sWorld->getBoolConfig(CONFIG_LOOT_CONSOLIDATE_STACKS);
+
+    // One sample fixes randomPropertyId/suffix for the whole drop; reused for every stack.
+    LootItem sample(item);
+
+    // --- Part A: consolidate into existing identical stacks (same quantity, fewer slots) ---
+    if (consolidate && stackCap > 1)
     {
-        LootItem generatedLoot(item);
-        generatedLoot.count = std::min(count, proto->GetMaxStackSize());
-        generatedLoot.itemIndex = lootItems.size();
-        lootItems.push_back(generatedLoot);
-        count -= proto->GetMaxStackSize();
-
-        // In some cases, a dropped item should be visible/lootable only for some players in group
-        bool canSeeItemInLootWindow = false;
-        if (auto player = ObjectAccessor::FindPlayer(lootOwnerGUID))
+        for (LootItem& existing : lootItems)
         {
-            if (auto group = player->GetGroup())
-            {
-                for (auto itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
-                {
-                    if (auto member = itr->GetSource())
-                    {
-                        if (generatedLoot.AllowedForPlayer(member, sourceWorldObjectGUID))
-                        {
-                            canSeeItemInLootWindow = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            else if (generatedLoot.AllowedForPlayer(player, sourceWorldObjectGUID))
-            {
-                canSeeItemInLootWindow = true;
-            }
+            if (count == 0)
+                break;
+            if (existing.count >= stackCap || !CanMergeStacks(existing, sample))
+                continue;
+            uint32 const add = std::min<uint32>(stackCap - existing.count, count);
+            existing.count = uint8(existing.count + add);
+            count -= add;
         }
+    }
 
-        if (!canSeeItemInLootWindow)
-        {
-            LOG_DEBUG("loot", "Skipping ++unlootedCount for unlootable item: {}", item.itemid);
-            continue;
-        }
+    // --- Part B: remaining quantity -> new stacks (cap-aware; rarity-priority added in Task 3) ---
+    while (count > 0 && lootItems.size() < limit)
+    {
+        uint32 const thisStack = std::min(count, stackCap);
 
-        // non-conditional one-player only items are counted here,
-        // free for all items are counted in FillFFALoot(),
-        // non-ffa conditionals are counted in FillNonQuestNonFFAConditionalLoot()
-        if (!item.needs_quest && item.conditions.empty() && !proto->HasFlag(ITEM_FLAG_MULTI_DROP))
+        uint32 const slot = uint32(lootItems.size());
+        lootItems.push_back(sample);
+
+        LootItem& generatedLoot = lootItems[slot];
+        generatedLoot.count = uint8(thisStack);
+        generatedLoot.itemIndex = slot;
+        count -= thisStack;
+
+        if (SlotCountsForUnlooted(generatedLoot))
             ++unlootedCount;
     }
 }
