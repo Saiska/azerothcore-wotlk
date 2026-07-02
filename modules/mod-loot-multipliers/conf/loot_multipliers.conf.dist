@@ -7,25 +7,40 @@
 LootMultipliers.Enable = 1
 
 #
-#    LootMultipliers.CategoryRates
-#        Whitespace-separated list of rules that multiply the QUANTITY (item count) of
-#        looted items by item category. Each rule is:
+#    LootMultipliers.CategoryMinRates / LootMultipliers.CategoryMaxRates
+#        Whitespace-separated lists of rules that RANDOMLY multiply the QUANTITY (item
+#        count) of looted items by item category. Each rule is:
 #            <class>=<mult>            apply to every item of that item class
 #            <class>:<subclass>=<mult> apply only to that class+subclass (overrides the
 #                                      class-wide rule for the same class)
 #        Class/subclass are the numeric item_template.class / .subclass values
 #        (see ItemTemplate.h). Applies to ALL loot sources (creature, gameobject,
 #        gathering, fishing, disenchant, ...), grouped and ungrouped. Quest items are
-#        never multiplied. Fractional mults give a chance-based bonus (1.5 = +50% chance
-#        of one extra unit). Rules with mult <= 1.0 are ignored.
+#        never multiplied.
+#
+#        For each looted item a fresh multiplier is rolled UNIFORMLY in [min, max] for
+#        that category (a new roll per item, every loot — two kills of the same mob give
+#        different amounts). floor(count*m) is guaranteed and the fraction is a chance of
+#        one more (m=1.5 => +50% chance of +1 unit). A rolled m <= 1.0 leaves the stack
+#        UNCHANGED — loot is NEVER reduced, even if a min is set below 1.0 (a min <= 1.0
+#        just means "a chance of no bonus"). If min == max the category is effectively flat.
+#
+#        Min and max are resolved INDEPENDENTLY (each does its own subclass-over-class
+#        override, defaulting to 1.0 if absent). Keep the two lists SYMMETRIC — a key in
+#        only one list falls back to the class-wide value (or 1.0) for the other bound,
+#        which is rarely what you want.
 #
 #        Common classes: 3 = Gem, 5 = Reagent, 7 = Trade Goods (crafting mats).
-#        class 7 subclasses: 5 Cloth, 6 Leather, 7 Metal&Stone, 9 Herb, 12 Enchanting.
+#        class 7 subclasses: 0 Trade Goods (generic), 1 Parts, 2 Explosives,
+#            3 Devices, 4 Jewelcrafting, 5 Cloth, 6 Leather, 7 Metal&Stone,
+#            8 Meat, 9 Herb, 10 Elemental, 11 Other, 12 Enchanting, 13 Material,
+#            14 Armor Enchantment, 15 Weapon Enchantment.
 #
-#        Default: "3=2.0 7=2.0"  (gems + all trade goods x2 — subsumes the old
-#        gathering-yield x2 and adds combat-drop materials)
+#        Default: min "3=1.0 7=1.0", max "3=2.0 7=2.0" (gems + all trade goods roll
+#        x1..x2 — a randomized version of the old flat x2).
 #
-LootMultipliers.CategoryRates = "3=2.0 7=2.0"
+LootMultipliers.CategoryMinRates = "3=1.0 7=1.0"
+LootMultipliers.CategoryMaxRates = "3=2.0 7=2.0"
 
 #
 #    LootMultipliers.BossEnable
