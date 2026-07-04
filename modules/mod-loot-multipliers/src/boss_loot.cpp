@@ -11,6 +11,7 @@
 #include "Player.h"
 #include "SharedDefines.h"
 #include "Random.h"
+#include "World.h"
 
 namespace
 {
@@ -132,6 +133,22 @@ public:
 
         if (IsBossLoot(player, loot))
         {
+            // A reference that lives inside a loot group (groupid != 0) is ALREADY
+            // multiplied by the group-amount hook: under UncapChance, ProcessGuaranteed
+            // loops the boosted iteration count (OnAfterCalculateLootGroupAmount) over
+            // this reference. Applying BossRoll() here too compounds both boosts (Moroes:
+            // a 2-drop epic pool ballooned to 8-18 instead of the intended 4-6). Only skip
+            // in the UncapChance path -- with UncapChance off the group loop ignores
+            // references, so this hook must remain the sole boost.
+            if (item->groupid != 0 && sWorld->getBoolConfig(CONFIG_LOOT_UNCAP_CHANCE))
+            {
+                if (g_bossDebug)
+                    LOG_INFO("server.loading",
+                        "[BossLoot dbg] REF hook: ref={} grouped(groupid={}) -> skip (group hook owns it)",
+                        item->reference, uint32(item->groupid));
+                return;
+            }
+
             uint32 const before = maxcount;
             maxcount = static_cast<uint32>(item->maxcount) * BossRoll();
             if (g_bossDebug)
