@@ -6260,7 +6260,9 @@ void Spell::EffectCastButtons(SpellEffIndex effIndex)
         if (m_caster->GetPower(POWER_MANA) < cost)
             continue;
 
-        TriggerCastFlags triggerFlags = TriggerCastFlags(TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CAST_IN_PROGRESS | TRIGGERED_CAST_DIRECTLY);
+        // Waive the totem-item requirement so this multi-cast places totems for casters that
+        // don't carry the four elemental totem items (playerbots). See Spell::CheckItems.
+        TriggerCastFlags triggerFlags = TriggerCastFlags(TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CAST_IN_PROGRESS | TRIGGERED_CAST_DIRECTLY | TRIGGERED_IGNORE_POWER_AND_REAGENT_COST);
         m_caster->CastSpell(m_caster, spell_id, triggerFlags);
     }
 }
