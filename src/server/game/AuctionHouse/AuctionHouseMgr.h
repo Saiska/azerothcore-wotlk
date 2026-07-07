@@ -138,6 +138,8 @@ public:
 
     [[nodiscard]] uint32 Getcount() const { return _auctionsMap.size(); }
 
+    void InvalidateExpireWatermark() { _minExpireCheck = 0; } // force rescan next Update (used by ExpireAllAuctions)
+
     AuctionEntryMap::iterator GetAuctionsBegin() { return _auctionsMap.begin(); }
     AuctionEntryMap::iterator GetAuctionsEnd() { return _auctionsMap.end(); }
     AuctionEntryMap const& GetAuctions() { return _auctionsMap; }
@@ -156,6 +158,8 @@ public:
 
 private:
     AuctionEntryMap _auctionsMap;
+
+    time_t _minExpireCheck = 0; // earliest expire_time among current auctions; 0 = dirty (must scan)
 
     // storage for "next" auction item for next Update()
     AuctionEntryMap::const_iterator _next;

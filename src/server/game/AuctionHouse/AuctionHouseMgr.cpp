@@ -494,6 +494,10 @@ void AuctionHouseObject::AddAuction(AuctionEntry* auction)
     ASSERT(auction);
 
     _auctionsMap[auction->Id] = auction;
+
+    if (_minExpireCheck == 0 || auction->expire_time < _minExpireCheck) // lower watermark if sooner (0 = unset)
+        _minExpireCheck = auction->expire_time;
+
     sAuctionMgr->GetAuctionHouseSearcher()->AddAuction(auction);
 
     sScriptMgr->OnAuctionAdd(this, auction);
@@ -515,14 +519,19 @@ bool AuctionHouseObject::RemoveAuction(AuctionEntry* auction)
 
 void AuctionHouseObject::Update()
 {
-    time_t checkTime = GameTime::GetGameTime().count() + 60;
     ///- Handle expired auctions
-
-    // If storage is empty, no need to update. next == nullptr in this case.
+    // If storage is empty, no need to update.
     if (_auctionsMap.empty())
         return;
 
+    time_t checkTime = GameTime::GetGameTime().count() + 60;
+
+    // Early-out: watermark valid AND nothing due within the next 60s → no scan, no transaction.
+    if (_minExpireCheck != 0 && checkTime < _minExpireCheck)
+        return;
+
     CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    time_t newMin = 0; // 0 = no survivors yet
 
     for (AuctionEntryMap::iterator itr, iter = _auctionsMap.begin(); iter != _auctionsMap.end(); )
     {
@@ -530,7 +539,11 @@ void AuctionHouseObject::Update()
         AuctionEntry* auction = (*itr).second;
 
         if (auction->expire_time > checkTime)
+        {
+            if (newMin == 0 || auction->expire_time < newMin)
+                newMin = auction->expire_time; // track earliest survivor
             continue;
+        }
 
         ///- Either cancel the auction if there was no bidder
         if (!auction->bidder)
@@ -556,6 +569,7 @@ void AuctionHouseObject::Update()
         RemoveAuction(auction);
     }
     CharacterDatabase.CommitTransaction(trans);
+    _minExpireCheck = newMin; // survivors' earliest; 0 if all expired
 }
 
 AuctionHouseFaction AuctionEntry::GetFactionId() const
