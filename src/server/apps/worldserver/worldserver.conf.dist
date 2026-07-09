@@ -2339,6 +2339,18 @@ SkillChance.Prospecting = 0
 SkillChance.Milling = 0
 
 #
+#    MillProspect.WholeStack
+#        If enabled, a single Milling or Prospecting cast processes the WHOLE stack
+#        (largest multiple of 5) at once, delivering the results straight into your
+#        bags instead of 5 items at a time via a loot window. Output is identical to
+#        milling 5-at-a-time N times (same loot table, one roll per 5 items). If your
+#        bags fill mid-stack, only the batches that fit are processed and the rest of
+#        the stack is left intact (no material is lost).
+#        Default: 1 (enabled). Set to 0 for vanilla 5-at-a-time behavior.
+#
+MillProspect.WholeStack = 1
+
+#
 #    Rate.Skill.Discovery
 #        Description: Multiplier for skill discovery.
 #        Default:     1

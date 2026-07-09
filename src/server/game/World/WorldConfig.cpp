@@ -323,6 +323,7 @@ void WorldConfig::BuildConfigCache()
 
     SetConfigValue<bool>(CONFIG_SKILL_PROSPECTING, "SkillChance.Prospecting", false);
     SetConfigValue<bool>(CONFIG_SKILL_MILLING, "SkillChance.Milling", false);
+    SetConfigValue<bool>(CONFIG_MILL_PROSPECT_WHOLE_STACK, "MillProspect.WholeStack", true);
 
     SetConfigValue<uint32>(CONFIG_SKILL_GAIN_CRAFTING, "SkillGain.Crafting", 1);
 
