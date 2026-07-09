@@ -5508,12 +5508,15 @@ void Spell::EffectTransmitted(SpellEffIndex effIndex)
 
 namespace
 {
-    // Whole-stack milling / prospecting. Rolls the loot template once per 5-item
-    // batch (== one vanilla cast's worth) straight into the player's bags, bypassing
-    // the loot window. All-or-nothing per batch: if the bags cannot hold a batch's
-    // output, that batch is not stored and its 5 input items are NOT consumed, so
-    // material is never lost (mirrors Player::AutoStoreLoot but with a pre-gate,
-    // because AutoStoreLoot silently drops overflow).
+    // Whole-stack milling / prospecting: roll the loot template once per 5-item
+    // batch straight into the player's bags, no loot window. TRUE all-or-nothing
+    // per batch -- a batch's 5 input items are consumed ONLY after every rolled
+    // output item has actually been stored. The batch is first validated in full,
+    // accumulating reservations into one dest so two rolled items cannot claim the
+    // same free slot and specialty bags that reject the item are correctly excluded
+    // (unlike GetFreeInventorySpace, which counts them). If a batch cannot be fully
+    // stored -- or rolls no output -- the loop stops and the remaining stack is left
+    // intact. Material is never lost.
     void MillProspectWholeStack(Player* player, Item* itemTarget, LootStore const& store)
     {
         uint32 const batches = itemTarget->GetCount() / 5;
@@ -5526,28 +5529,46 @@ namespace
 
             uint32 const maxSlot = loot.GetMaxSlotInLootFor(player);
 
-            // All-or-nothing gate. A milling/prospecting roll yields a few small
-            // stacks (count << max stack size), so one free slot per rolled entry
-            // is enough to store the whole batch with zero drops; merges into
-            // existing partial stacks only reduce the need. Requiring free slots
-            // >= maxSlot therefore stops EARLY at worst and never loses items.
-            if (player->GetFreeInventorySpace() < maxSlot)
-                break;
-
+            std::vector<LootItem*> rolled;
             for (uint32 i = 0; i < maxSlot; ++i)
+                if (LootItem* lootItem = loot.LootItemInSlot(i, player))
+                    rolled.push_back(lootItem);
+
+            if (rolled.empty())
+                break; // no output rolled -- never consume input for nothing
+
+            // Phase 1: validate the WHOLE batch fits, accumulating reservations
+            // into one dest so slots are not double-counted.
+            ItemPosCountVec dest;
+            bool fits = true;
+            for (LootItem* lootItem : rolled)
             {
-                LootItem* lootItem = loot.LootItemInSlot(i, player);
-                if (!lootItem)
-                    continue;
-
-                ItemPosCountVec dest;
-                InventoryResult msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, lootItem->itemid, lootItem->count);
-                if (msg != EQUIP_ERR_OK)
-                    continue;
-
-                Item* stored = player->StoreNewItem(dest, lootItem->itemid, true, lootItem->randomPropertyId);
-                player->SendNewItem(stored, lootItem->count, false, false, true);
+                if (player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, lootItem->itemid, lootItem->count) != EQUIP_ERR_OK)
+                {
+                    fits = false;
+                    break;
+                }
             }
+
+            if (!fits)
+                break; // first batch that cannot be fully stored ends the run
+
+            // Phase 2: commit -- store every rolled item for real.
+            uint32 stored = 0;
+            for (LootItem* lootItem : rolled)
+            {
+                ItemPosCountVec one;
+                if (player->CanStoreNewItem(NULL_BAG, NULL_SLOT, one, lootItem->itemid, lootItem->count) != EQUIP_ERR_OK)
+                    break; // defensive: phase 1 already proved the batch fits
+
+                Item* newItem = player->StoreNewItem(one, lootItem->itemid, true, lootItem->randomPropertyId);
+                player->SendNewItem(newItem, lootItem->count, false, false, true);
+                ++stored;
+            }
+
+            // Consume this batch only if every rolled item was actually stored.
+            if (stored != rolled.size())
+                break; // safety: never consume input we did not fully deliver
 
             ++delivered;
         }
