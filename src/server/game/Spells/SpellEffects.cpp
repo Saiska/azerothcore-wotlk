@@ -34,6 +34,7 @@
 #include "InstanceScript.h"
 #include "Language.h"
 #include "Log.h"
+#include "LootMgr.h"
 #include "MapMgr.h"
 #include "MiscPackets.h"
 #include "ObjectAccessor.h"
@@ -5505,6 +5506,60 @@ void Spell::EffectTransmitted(SpellEffIndex effIndex)
     }
 }
 
+namespace
+{
+    // Whole-stack milling / prospecting. Rolls the loot template once per 5-item
+    // batch (== one vanilla cast's worth) straight into the player's bags, bypassing
+    // the loot window. All-or-nothing per batch: if the bags cannot hold a batch's
+    // output, that batch is not stored and its 5 input items are NOT consumed, so
+    // material is never lost (mirrors Player::AutoStoreLoot but with a pre-gate,
+    // because AutoStoreLoot silently drops overflow).
+    void MillProspectWholeStack(Player* player, Item* itemTarget, LootStore const& store)
+    {
+        uint32 const batches = itemTarget->GetCount() / 5;
+        uint32 delivered = 0;
+
+        for (uint32 b = 0; b < batches; ++b)
+        {
+            Loot loot;
+            loot.FillLoot(itemTarget->GetEntry(), store, player, true);
+
+            uint32 const maxSlot = loot.GetMaxSlotInLootFor(player);
+
+            // All-or-nothing gate. A milling/prospecting roll yields a few small
+            // stacks (count << max stack size), so one free slot per rolled entry
+            // is enough to store the whole batch with zero drops; merges into
+            // existing partial stacks only reduce the need. Requiring free slots
+            // >= maxSlot therefore stops EARLY at worst and never loses items.
+            if (player->GetFreeInventorySpace() < maxSlot)
+                break;
+
+            for (uint32 i = 0; i < maxSlot; ++i)
+            {
+                LootItem* lootItem = loot.LootItemInSlot(i, player);
+                if (!lootItem)
+                    continue;
+
+                ItemPosCountVec dest;
+                InventoryResult msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, lootItem->itemid, lootItem->count);
+                if (msg != EQUIP_ERR_OK)
+                    continue;
+
+                Item* stored = player->StoreNewItem(dest, lootItem->itemid, true, lootItem->randomPropertyId);
+                player->SendNewItem(stored, lootItem->count, false, false, true);
+            }
+
+            ++delivered;
+        }
+
+        if (delivered)
+        {
+            uint32 consume = delivered * 5;
+            player->DestroyItemCount(itemTarget, consume, true);
+        }
+    }
+}
+
 void Spell::EffectProspecting(SpellEffIndex /*effIndex*/)
 {
     if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT_TARGET)
@@ -5527,7 +5582,13 @@ void Spell::EffectProspecting(SpellEffIndex /*effIndex*/)
         p_caster->UpdateGatherSkill(SKILL_JEWELCRAFTING, SkillValue, reqSkillValue);
     }
 
-    m_caster->ToPlayer()->SendLoot(itemTarget->GetGUID(), LOOT_PROSPECTING);
+    if (!sWorld->getBoolConfig(CONFIG_MILL_PROSPECT_WHOLE_STACK))
+    {
+        p_caster->SendLoot(itemTarget->GetGUID(), LOOT_PROSPECTING);
+        return;
+    }
+
+    MillProspectWholeStack(p_caster, itemTarget, LootTemplates_Prospecting);
 }
 
 void Spell::EffectMilling(SpellEffIndex /*effIndex*/)
@@ -5552,7 +5613,13 @@ void Spell::EffectMilling(SpellEffIndex /*effIndex*/)
         p_caster->UpdateGatherSkill(SKILL_INSCRIPTION, SkillValue, reqSkillValue);
     }
 
-    m_caster->ToPlayer()->SendLoot(itemTarget->GetGUID(), LOOT_MILLING);
+    if (!sWorld->getBoolConfig(CONFIG_MILL_PROSPECT_WHOLE_STACK))
+    {
+        p_caster->SendLoot(itemTarget->GetGUID(), LOOT_MILLING);
+        return;
+    }
+
+    MillProspectWholeStack(p_caster, itemTarget, LootTemplates_Milling);
 }
 
 void Spell::EffectSkill(SpellEffIndex /*effIndex*/)
