@@ -2899,7 +2899,14 @@ Item* Player::EquipItem(uint16 pos, Item* pItem, bool update)
     }
     else
     {
-        pItem2->SetCount(pItem2->GetCount() + pItem->GetCount());
+        // Only genuinely stackable equipment (thrown weapons / ammo in the ranged slot) may
+        // combine into an already-occupied slot. Clamp to the item's real max stack size so a
+        // non-stackable piece can never accumulate a >1 "stack" here. An un-clamped merge is the
+        // source of corrupted equipped gear: e.g. an equipped relic/trinket reaching count 2+,
+        // which then makes every upgrade swap fail forever with EQUIP_ERR_CANT_CARRY_MORE_OF_THIS
+        // (the displaced stack of 2 cannot be stored back into bags for a maxcount=1 item).
+        uint32 const maxStack = pItem2->GetTemplate()->GetMaxStackSize();
+        pItem2->SetCount(std::min<uint32>(pItem2->GetCount() + pItem->GetCount(), maxStack ? maxStack : 1));
         if (IsInWorld() && update)
             pItem2->SendUpdateToPlayer(this);
 
