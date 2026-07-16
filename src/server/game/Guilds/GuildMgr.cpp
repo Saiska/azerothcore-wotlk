@@ -23,8 +23,15 @@ GuildMgr::GuildMgr() : NextGuildId(1)
 
 GuildMgr::~GuildMgr()
 {
+    Unload();
+}
+
+void GuildMgr::Unload()
+{
     for (GuildContainer::iterator itr = GuildStore.begin(); itr != GuildStore.end(); ++itr)
         delete itr->second;
+
+    GuildStore.clear();
 }
 
 GuildMgr* GuildMgr::instance()

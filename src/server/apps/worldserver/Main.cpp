@@ -31,6 +31,7 @@
 #include "DatabaseEnv.h"
 #include "DatabaseLoader.h"
 #include "GitRevision.h"
+#include "GuildMgr.h"
 #include "IoContext.h"
 #include "MapMgr.h"
 #include "Metric.h"
@@ -309,6 +310,8 @@ int main(int argc, char** argv)
 
     std::shared_ptr<void> mapManagementHandle(nullptr, [](void*)
     {
+        sGuildMgr->Unload();
+
         // unload battleground templates before different singletons destroyed
         sBattlegroundMgr->DeleteAllBattlegrounds();
 
